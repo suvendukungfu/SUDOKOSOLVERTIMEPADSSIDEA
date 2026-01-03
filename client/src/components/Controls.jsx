@@ -1,35 +1,39 @@
-export default function Controls() {
+export default function Controls({ onLock, onReset }) {
   return (
     <div
       style={{
         display: "flex",
         gap: "16px",
         justifyContent: "center",
-        marginTop: "32px",
+        marginTop: "24px",
       }}
     >
       <button
+        onClick={onLock}
         style={{
-          padding: "14px 32px",
+          padding: "12px 24px",
           borderRadius: "14px",
-          background: "#4fd1c5",
-          color: "#0b0f1a",
-          fontSize: "16px",
+          background: "#121829",
+          color: "#4fd1c5",
+          border: "2px solid #4fd1c5",
+          fontSize: "15px",
           fontWeight: 600,
-          border: "none",
+          cursor: "pointer",
         }}
       >
-        ✨ Solve Puzzle
+        🔒 Set as Given
       </button>
 
       <button
+        onClick={onReset}
         style={{
-          padding: "14px 32px",
+          padding: "12px 24px",
           borderRadius: "14px",
           background: "transparent",
           color: "#9f7aea",
           border: "2px solid #9f7aea",
-          fontSize: "16px",
+          fontSize: "15px",
+          cursor: "pointer",
         }}
       >
         ↺ Reset
