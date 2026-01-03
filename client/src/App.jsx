@@ -1,22 +1,30 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+
 import "./styles/theme.css";
 import "./styles/grid.css";
 import "./styles/animations.css";
-
-import { isValidMove } from "./utils/validation";
 
 import UploadZone from "./components/UploadZone";
 import SudokuGrid from "./components/SudokuGrid";
 import NumberPad from "./components/NumberPad";
 import Controls from "./components/Controls";
 
+import { isValidMove } from "./utils/validation";
+
+const emptyGrid = Array.from({ length: 9 }, () =>
+  Array(9).fill(null)
+);
+
 export default function App() {
-  const [grid, setGrid] = useState(
-    Array.from({ length: 9 }, () => Array(9).fill(0))
-  );
+  const [grid, setGrid] = useState(emptyGrid);
+  const [selectedCell, setSelectedCell] = useState(null);
   const [invalidCells, setInvalidCells] = useState([]);
 
-  const handleCellChange = (row, col, value) => {
+  // Handle number input (NumberPad + Keyboard)
+  const applyValue = (value) => {
+    if (!selectedCell) return;
+
+    const [row, col] = selectedCell;
     const newGrid = grid.map((r) => [...r]);
     newGrid[row][col] = value;
 
@@ -28,6 +36,24 @@ export default function App() {
 
     setGrid(newGrid);
   };
+
+  // Keyboard support
+  useEffect(() => {
+    const handleKey = (e) => {
+      if (!selectedCell) return;
+
+      if (e.key >= "1" && e.key <= "9") {
+        applyValue(Number(e.key));
+      }
+
+      if (e.key === "Backspace" || e.key === "Delete") {
+        applyValue(null);
+      }
+    };
+
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [selectedCell, grid]);
 
   return (
     <div className="app-container">
@@ -50,11 +76,20 @@ export default function App() {
         <div className="card">
           <SudokuGrid
             grid={grid}
+            selectedCell={selectedCell}
+            onSelectCell={setSelectedCell}
             invalidCells={invalidCells}
-            onCellChange={handleCellChange}
           />
-          <NumberPad />
-          <Controls />
+
+          <NumberPad onInput={applyValue} />
+
+          <Controls
+            onReset={() => {
+              setGrid(emptyGrid);
+              setSelectedCell(null);
+              setInvalidCells([]);
+            }}
+          />
         </div>
       </div>
     </div>
