@@ -1,0 +1,13 @@
+.solve-glow {
+    animation: glow 0.3s ease-in-out;
+}
+
+@keyframes glow {
+    0% {
+        box-shadow: 0 0 0 transparent;
+    }
+
+    100% {
+        box-shadow: 0 0 12px rgba(159, 122, 234, 0.6);
+    }
+}

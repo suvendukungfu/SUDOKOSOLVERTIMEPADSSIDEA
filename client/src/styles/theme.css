@@ -1,0 +1,45 @@
+:root {
+    --bg-main: #0b0f1a;
+    --bg-card: #121829;
+    --border-soft: rgba(255, 255, 255, 0.08);
+
+    --cyan: #4fd1c5;
+    --purple: #9f7aea;
+    --danger: #ef4444;
+
+    --text-main: #e5e7eb;
+    --text-muted: #9ca3af;
+}
+
+body {
+    background: radial-gradient(circle at top,
+            #121829,
+            #0b0f1a 60%);
+    color: var(--text-main);
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    margin: 0;
+}
+.app-container {
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding-top: 48px;
+}
+
+.page {
+    width: 100%;
+    max-width: 520px;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+}
+.card {
+    background: rgba(18, 24, 41, 0.7);
+    backdrop-filter: blur(12px);
+    border-radius: 20px;
+    padding: 28px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.02),
+        0 20px 60px rgba(0, 0, 0, 0.6);
+}
