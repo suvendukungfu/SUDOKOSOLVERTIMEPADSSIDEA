@@ -19,12 +19,17 @@ export default function App() {
   const [grid, setGrid] = useState(emptyGrid);
   const [selectedCell, setSelectedCell] = useState(null);
   const [invalidCells, setInvalidCells] = useState([]);
+  const [lockedCells, setLockedCells] = useState([]);
 
-  // Handle number input (NumberPad + Keyboard)
+  const isLocked = (r, c) =>
+    lockedCells.some(([lr, lc]) => lr === r && lc === c);
+
   const applyValue = (value) => {
     if (!selectedCell) return;
 
     const [row, col] = selectedCell;
+    if (isLocked(row, col)) return; // 🔒 block edit
+
     const newGrid = grid.map((r) => [...r]);
     newGrid[row][col] = value;
 
@@ -37,7 +42,7 @@ export default function App() {
     setGrid(newGrid);
   };
 
-  // Keyboard support
+  // Keyboard input
   useEffect(() => {
     const handleKey = (e) => {
       if (!selectedCell) return;
@@ -53,7 +58,7 @@ export default function App() {
 
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [selectedCell, grid]);
+  }, [selectedCell, grid, lockedCells]);
 
   return (
     <div className="app-container">
@@ -69,25 +74,34 @@ export default function App() {
           </p>
         </div>
 
-        {/* Upload */}
         <UploadZone />
 
-        {/* Sudoku Card */}
         <div className="card">
           <SudokuGrid
             grid={grid}
             selectedCell={selectedCell}
             onSelectCell={setSelectedCell}
             invalidCells={invalidCells}
+            lockedCells={lockedCells}
           />
 
           <NumberPad onInput={applyValue} />
 
           <Controls
+            onLock={() => {
+              const locked = [];
+              grid.forEach((row, r) =>
+                row.forEach((cell, c) => {
+                  if (cell !== null) locked.push([r, c]);
+                })
+              );
+              setLockedCells(locked);
+            }}
             onReset={() => {
               setGrid(emptyGrid);
               setSelectedCell(null);
               setInvalidCells([]);
+              setLockedCells([]);
             }}
           />
         </div>
