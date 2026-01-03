@@ -1,6 +1,9 @@
+import { useState } from "react";
 import "./styles/theme.css";
 import "./styles/grid.css";
 import "./styles/animations.css";
+
+import { isValidMove } from "./utils/validation";
 
 import UploadZone from "./components/UploadZone";
 import SudokuGrid from "./components/SudokuGrid";
@@ -8,6 +11,24 @@ import NumberPad from "./components/NumberPad";
 import Controls from "./components/Controls";
 
 export default function App() {
+  const [grid, setGrid] = useState(
+    Array.from({ length: 9 }, () => Array(9).fill(0))
+  );
+  const [invalidCells, setInvalidCells] = useState([]);
+
+  const handleCellChange = (row, col, value) => {
+    const newGrid = grid.map((r) => [...r]);
+    newGrid[row][col] = value;
+
+    if (!isValidMove(newGrid, row, col, value)) {
+      setInvalidCells([[row, col]]);
+    } else {
+      setInvalidCells([]);
+    }
+
+    setGrid(newGrid);
+  };
+
   return (
     <div className="app-container">
       <div className="page">
@@ -27,7 +48,11 @@ export default function App() {
 
         {/* Sudoku Card */}
         <div className="card">
-          <SudokuGrid />
+          <SudokuGrid
+            grid={grid}
+            invalidCells={invalidCells}
+            onCellChange={handleCellChange}
+          />
           <NumberPad />
           <Controls />
         </div>
