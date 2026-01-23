@@ -1,4 +1,4 @@
-# 🧩 AI-Powered Sudoku Solver
+#  AI-Powered Sudoku Solver
 
 **Image-to-Solution using OCR, OpenCV & Backtracking**
 
@@ -7,20 +7,20 @@ The project is inspired by modern puzzle-game aesthetics (Lovable-style UI) and 
 
 ---
 
-## 🚀 Live Features
+##  Live Features
 
-* 📸 **Image Upload (Drag & Drop / Camera)**
-* 👁️ **Computer Vision with OpenCV.js**
-* 🔢 **OCR Digit Recognition using Tesseract.js**
-* ✍️ **Manual Grid Editing (Error Correction)**
-* 🧠 **Backtracking Sudoku Solver Algorithm**
-* 🎨 **Modern Dark UI with Animations**
-* ⚡ **Fast & Deterministic Solving**
-* 🧑‍💻 **Keyboard & Mouse Interaction**
+* **Image Upload (Drag & Drop / Camera)**
+*  **Computer Vision with OpenCV.js**
+*  **OCR Digit Recognition using Tesseract.js**
+*  **Manual Grid Editing (Error Correction)**
+*  **Backtracking Sudoku Solver Algorithm**
+*  **Modern Dark UI with Animations**
+*  **Fast & Deterministic Solving**
+*  **Keyboard & Mouse Interaction**
 
 ---
 
-## 🖼️ Preview (UI Concept)
+##  Preview (UI Concept)
 
 > Dark, modern puzzle-game inspired UI with:
 
@@ -32,7 +32,7 @@ The project is inspired by modern puzzle-game aesthetics (Lovable-style UI) and 
 
 ---
 
-## 🏗️ Project Architecture
+##  Project Architecture
 
 ```
 ai-sudoku-solver/
@@ -66,7 +66,7 @@ ai-sudoku-solver/
 
 ---
 
-## 🧠 How It Works (End-to-End Flow)
+##  How It Works (End-to-End Flow)
 
 1. **User uploads a Sudoku image** or enters values manually.
 2. **OpenCV.js** processes the image:
@@ -84,7 +84,7 @@ ai-sudoku-solver/
 
 ---
 
-## 🧮 Sudoku Solver Algorithm
+##  Sudoku Solver Algorithm
 
 * Uses **recursive backtracking**
 * Ensures:
@@ -97,7 +97,7 @@ ai-sudoku-solver/
 
 ---
 
-## 🛠️ Tech Stack
+##  Tech Stack
 
 ### Frontend
 
@@ -122,16 +122,16 @@ ai-sudoku-solver/
 
 ---
 
-## ⚙️ Installation & Setup
+##  Installation & Setup
 
-### 1️⃣ Clone Repository
+###  Clone Repository
 
 ```bash
 git clone https://github.com/<your-username>/ai-sudoku-solver.git
 cd ai-sudoku-solver
 ```
 
-### 2️⃣ Frontend Setup
+###  Frontend Setup
 
 ```bash
 cd client
@@ -141,7 +141,7 @@ npm run dev
 
 Runs at: `http://localhost:5173`
 
-### 3️⃣ Backend Setup
+###  Backend Setup
 
 ```bash
 cd server
@@ -153,7 +153,7 @@ Runs at: `http://localhost:5000`
 
 ---
 
-## 🧪 Usage Instructions
+## Usage Instructions
 
 1. Upload a **clear Sudoku image** (PNG / JPG).
 2. Review detected digits.
@@ -165,7 +165,7 @@ Runs at: `http://localhost:5000`
 
 ---
 
-## 🚧 Limitations
+##  Limitations
 
 * OCR accuracy depends on image quality.
 * Handwritten digits may need manual fixes.
@@ -173,46 +173,37 @@ Runs at: `http://localhost:5000`
 
 ---
 
-## 🔮 Future Enhancements
+##  Future Enhancements
 
-* 🤖 CNN-based digit classifier (TensorFlow.js)
-* 📊 Step-by-step solving visualization
-* 📱 Mobile-first optimizations
-* 🌐 Multiplayer / puzzle sharing
-* 🧠 Difficulty estimation
-* ☁️ Cloud-based OCR fallback
+*  CNN-based digit classifier (TensorFlow.js)
+*  Step-by-step solving visualization
+*  Mobile-first optimizations
+*  Multiplayer / puzzle sharing
+*  Difficulty estimation
+*  Cloud-based OCR fallback
 
 ---
 
-## 👨‍💻 Author
+##  Author
 
 **Suvendu Kumar Sahoo**
 Software Developer | Full-Stack | AI & Computer Vision
-📧 Email: ssuvendukumar489@gmail.com
-🔗 GitHub:https://github.com/suvendukungfu
-🔗 LinkedIn: (https://www.linkedin.com/in/suvendu-kumar-sahoo-4566b3324/)
+Email: ssuvendukumar489@gmail.com
+GitHub:https://github.com/suvendukungfu
+LinkedIn: (https://www.linkedin.com/in/suvendu-kumar-sahoo-4566b3324/)
 
 ---
 
-## 📜 License
+##  License
 
 This project is licensed under the **MIT License** — feel free to use, modify, and distribute.
 
 ---
 
-## ⭐ If You Like This Project
+## If You Like This Project
 
 Give it a ⭐ on GitHub — it really helps!
 
 ---
 
-### ✅ Next Optional Steps
 
-If you want, I can:
-
-* Convert this into a **resume-optimized project description**
-* Create a **one-page architecture diagram**
-* Write **commit messages for each phase**
-* Prepare a **Zidio internship submission pitch**
-
-Just tell me 👍
