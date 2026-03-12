@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { motion } from "framer-motion";
 
 import "./styles/theme.css";
@@ -10,8 +10,9 @@ import SudokuGrid from "./components/SudokuGrid";
 import NumberPad from "./components/NumberPad";
 import Controls from "./components/Controls";
 
-import { isValidMove } from "./utils/validation";
+import { findGridConflicts } from "./utils/validation";
 import { solveGrid } from "./utils/solverClient";
+import { loadAIModel } from "./utils/modelLoader";
 
 const emptyGrid = Array.from({ length: 9 }, () => Array(9).fill(null));
 
@@ -23,11 +24,22 @@ export default function App() {
   const [solvedCells, setSolvedCells] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState(null);
+  const [modelStatus, setModelStatus] = useState("loading");
+  const [uncertainties, setUncertainties] = useState({});
+  const [debugImages, setDebugImages] = useState(new Array(81).fill(null));
+  const [showDebug, setShowDebug] = useState(false);
 
-  const isLocked = (r, c) =>
-    lockedCells.some(([lr, lc]) => lr === r && lc === c);
+  useEffect(() => {
+    loadAIModel().then(({ status }) => setModelStatus(status));
+  }, []);
 
-  const applyValue = (value) => {
+  const MotionH1 = motion.h1;
+  const MotionDiv = motion.div;
+
+  const isLocked = useCallback((r, c) =>
+    lockedCells.some(([lr, lc]) => lr === r && lc === c), [lockedCells]);
+
+  const applyValue = useCallback((value) => {
     if (!selectedCell) return;
 
     const [row, col] = selectedCell;
@@ -40,29 +52,23 @@ export default function App() {
     setSolvedCells(prev => prev.filter(([sr, sc]) => sr !== row || sc !== col));
     setError(null);
 
-    // Validate if non-empty
-    if (value !== null && value !== 0 && !isValidMove(newGrid, row, col, value)) {
-      setInvalidCells((prev) => {
-        // Only add if not already in array to prevent duplicates
-        if (!prev.some(([ir,ic]) => ir === row && ic === col)) {
-          return [...prev, [row, col]];
-        }
-        return prev;
-      });
-    } else {
-      setInvalidCells((prev) => prev.filter(([ir,ic]) => ir !== row || ic !== col));
-    }
+    // Refresh all conflicts
+    const allConflicts = findGridConflicts(newGrid);
+    setInvalidCells(allConflicts);
 
     setGrid(newGrid);
-  };
+  }, [grid, isLocked, selectedCell]);
 
   // Process OCR extracted grid
-  const handleGridExtracted = (extractedGrid) => {
+  const handleGridExtracted = (extractedGrid, uncertaintiesMap, statusObj) => {
     setIsProcessing(false);
+    if (statusObj?.ocrStatus) setModelStatus(statusObj.ocrStatus);
     
     // Transform formatting (0 -> null for UI)
     const formattedGrid = extractedGrid.map(row => row.map(cell => cell === 0 ? null : cell));
     setGrid(formattedGrid);
+    setUncertainties(uncertaintiesMap || {});
+    setDebugImages(statusObj.debugImages || new Array(81).fill(null));
     
     // Auto-lock non-null cells as givens
     const locked = [];
@@ -73,7 +79,15 @@ export default function App() {
     );
     setLockedCells(locked);
     setSolvedCells([]);
-    setInvalidCells([]);
+    
+    // Auto-detect conflicts from OCR
+    const conflicts = findGridConflicts(formattedGrid);
+    setInvalidCells(conflicts);
+    
+    if (conflicts.length > 0) {
+      setError("AI detected some conflicts in the image. Please verify highlighted cells.");
+    }
+
     setSelectedCell(null);
   };
 
@@ -90,7 +104,7 @@ export default function App() {
       // Backend expects 0s for empty spaces
       const requestGrid = grid.map(row => row.map(cell => cell === null ? 0 : cell));
       
-      const solution = await solveGrid(requestGrid);
+      const solution = await solveGrid(requestGrid, uncertainties);
       
       // Determine which cells were filled by the AI
       const newlySolved = [];
@@ -129,7 +143,7 @@ export default function App() {
 
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [selectedCell, grid, lockedCells]);
+  }, [applyValue, selectedCell]);
 
   return (
     <div className="min-h-screen bg-[#111827] text-white flex flex-col items-center py-12 px-4 font-sans relative overflow-hidden">
@@ -138,18 +152,28 @@ export default function App() {
       <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-[#4fd1c5] rounded-full blur-[100px] opacity-10 pointer-events-none"></div>
       <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-[#9f7aea] rounded-full blur-[100px] opacity-10 pointer-events-none"></div>
 
+      {/* Model Status Indicator */}
+      <div className="absolute top-4 right-4 z-50 flex items-center gap-2 px-4 py-2 rounded-lg bg-[#1a1c23]/80 border border-gray-700 backdrop-blur-md shadow-lg">
+        <span className="font-semibold text-sm">
+          Model Status:{" "}
+          {modelStatus === "loading" && <span className="text-gray-400">⏳ Loading...</span>}
+          {modelStatus === "local" && <span className="text-green-400">✔ AI model loaded</span>}
+          {modelStatus === "demo" && <span className="text-yellow-400">⚠ Running in demo mode</span>}
+        </span>
+      </div>
+
       <div className="relative z-10 w-full max-w-4xl grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
         
         {/* Left Column: UI Controls & Upload */}
         <div className="flex flex-col space-y-8">
           <div className="text-center lg:text-left">
-            <motion.h1 
+            <MotionH1 
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
               className="text-5xl font-black mb-4 tracking-tight"
             >
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#4fd1c5] to-[#9f7aea]">AI Sudoku</span> Solver
-            </motion.h1>
+              <span className="text-transparent bg-clip-text bg-linear-to-r from-[#4fd1c5] to-[#9f7aea]">AI Sudoku</span> Solver
+            </MotionH1>
             <p className="text-gray-400 text-lg">
               Upload an image, snap a photo, or enter manually. Let AI do the heavy lifting instantly.
             </p>
@@ -163,9 +187,9 @@ export default function App() {
           <NumberPad onInput={applyValue} />
 
           {error && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-4 bg-red-500/20 border border-red-500 rounded-lg text-red-400 text-center font-medium shadow-[0_0_15px_rgba(239,68,68,0.2)]">
+            <MotionDiv initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-4 bg-red-500/20 border border-red-500 rounded-lg text-red-400 text-center font-medium shadow-[0_0_15px_rgba(239,68,68,0.2)]">
               {error}
-            </motion.div>
+            </MotionDiv>
           )}
 
           <Controls
@@ -182,8 +206,12 @@ export default function App() {
               setInvalidCells([]);
               setLockedCells([]);
               setSolvedCells([]);
+              setDebugImages(new Array(81).fill(null));
+              setUncertainties({});
               setError(null);
             }}
+            showDebug={showDebug}
+            onToggleDebug={setShowDebug}
           />
         </div>
 
@@ -196,6 +224,8 @@ export default function App() {
             invalidCells={invalidCells}
             lockedCells={lockedCells}
             solvedCells={solvedCells}
+            debugImages={debugImages}
+            showDebug={showDebug}
           />
         </div>
 
