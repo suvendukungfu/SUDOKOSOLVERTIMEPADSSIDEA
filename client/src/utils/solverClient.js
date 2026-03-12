@@ -1,16 +1,16 @@
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5001";
 
 /**
  * Sends a grid to the backend to get a fully solved grid.
  */
-export const solveGrid = async (grid) => {
+export const solveGrid = async (grid, uncertainties = {}) => {
   try {
     const response = await fetch(`${API_URL}/solve`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ grid }),
+      body: JSON.stringify({ grid, uncertainties }),
     });
 
     if (!response.ok) {
