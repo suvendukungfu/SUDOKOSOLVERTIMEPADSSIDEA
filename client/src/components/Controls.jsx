@@ -1,43 +1,39 @@
-export default function Controls({ onLock, onReset }) {
+import { motion } from 'framer-motion';
+
+export default function Controls({ isProcessing, onSolve, onLock, onReset }) {
   return (
-    <div
-      style={{
-        display: "flex",
-        gap: "16px",
-        justifyContent: "center",
-        marginTop: "24px",
-      }}
-    >
-      <button
+    <div className="flex flex-wrap gap-4 justify-center mt-6">
+      <motion.button
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+        onClick={onSolve}
+        disabled={isProcessing}
+        className={`px-8 py-3 rounded-xl font-bold text-lg shadow-[0_0_20px_rgba(79,209,197,0.4)] transition-all ${
+          isProcessing 
+            ? 'bg-[#4fd1c5]/50 text-gray-800 cursor-not-allowed' 
+            : 'bg-gradient-to-r from-[#4fd1c5] to-[#38b2a6] text-black hover:shadow-[0_0_30px_rgba(79,209,197,0.6)]'
+        }`}
+      >
+        {isProcessing ? 'Solving...' : '🚀 Solve Puzzle'}
+      </motion.button>
+
+      <motion.button
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
         onClick={onLock}
-        style={{
-          padding: "12px 24px",
-          borderRadius: "14px",
-          background: "#121829",
-          color: "#4fd1c5",
-          border: "2px solid #4fd1c5",
-          fontSize: "15px",
-          fontWeight: 600,
-          cursor: "pointer",
-        }}
+        className="px-6 py-3 rounded-xl bg-[#1a202c] text-[#4fd1c5] border-2 border-[#4fd1c5] font-semibold hover:bg-[#4fd1c5]/10 transition-colors"
       >
         🔒 Set as Given
-      </button>
+      </motion.button>
 
-      <button
+      <motion.button
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
         onClick={onReset}
-        style={{
-          padding: "12px 24px",
-          borderRadius: "14px",
-          background: "transparent",
-          color: "#9f7aea",
-          border: "2px solid #9f7aea",
-          fontSize: "15px",
-          cursor: "pointer",
-        }}
+        className="px-6 py-3 rounded-xl bg-transparent text-[#9f7aea] border-2 border-[#9f7aea] font-semibold hover:bg-[#9f7aea]/10 transition-colors"
       >
         ↺ Reset
-      </button>
+      </motion.button>
     </div>
   );
 }

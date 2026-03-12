@@ -1,51 +1,31 @@
-export default function NumberPad({ onPress }) {
+import { motion } from 'framer-motion';
+
+export default function NumberPad({ onInput }) {
+  const numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+
   return (
-    <>
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(3, 60px)",
-          gap: "12px",
-          justifyContent: "center",
-          marginTop: "24px",
-        }}
-      >
-        {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
-          <button
+    <div className="flex justify-center mt-6">
+      <div className="grid grid-cols-5 gap-3 max-w-sm">
+        {numbers.map((num) => (
+          <motion.button
             key={num}
-            onClick={() => onPress?.(num)}
-            style={{
-              height: "48px",
-              borderRadius: "12px",
-              background: "#121829",
-              color: "white",
-              border: "1px solid rgba(255,255,255,0.08)",
-              fontSize: "18px",
-              cursor: "pointer",
-            }}
+            whileHover={{ scale: 1.1, backgroundColor: "rgba(79, 209, 197, 0.2)" }}
+            whileTap={{ scale: 0.9 }}
+            onClick={() => onInput(num)}
+            className="w-12 h-12 rounded-xl bg-[#1a202c] text-white border border-gray-700 font-semibold text-xl shadow-lg transition-colors hover:border-[#4fd1c5] hover:text-[#4fd1c5]"
           >
             {num}
-          </button>
+          </motion.button>
         ))}
-
-        <button
-          onClick={() => onPress?.("delete")}
-          style={{
-            gridColumn: "span 3",
-            height: "48px",
-            borderRadius: "12px",
-            background: "#2a1418",
-            color: "#ef4444",
-            border: "1px solid rgba(255,255,255,0.08)",
-            fontSize: "18px",
-            cursor: "pointer",
-          }}
+        <motion.button
+          whileHover={{ scale: 1.1, backgroundColor: "rgba(239, 68, 68, 0.2)" }}
+          whileTap={{ scale: 0.9 }}
+          onClick={() => onInput(null)}
+          className="w-12 h-12 rounded-xl bg-[#2a1418] text-[#ef4444] border border-red-900 font-semibold text-lg shadow-lg flex items-center justify-center transition-colors hover:border-[#ef4444]"
         >
           ✕
-        </button>
+        </motion.button>
       </div>
-
-      <div style={{ marginBottom: "20px" }} />
-    </>
+    </div>
   );
 }

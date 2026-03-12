@@ -1,98 +1,168 @@
-// server/index.js
 const express = require('express');
 const cors = require('cors');
-const multer = require('multer');
-const Tesseract = require('tesseract.js');
-const fs = require('fs');
-const path = require('path');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-const uploadsDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir);
+// --- Optimized Sudoku Solver (Constraint Propagation + Backtracking) ---
 
-// multer storage
-const storage = multer.diskStorage({
-  destination: uploadsDir,
-  filename: (req, file, cb) => cb(null, Date.now() + '-' + file.originalname)
-});
-const upload = multer({ storage });
+const getCandidates = (board, r, c) => {
+  if (board[r][c] !== 0) return [];
+  const candidates = new Set([1, 2, 3, 4, 5, 6, 7, 8, 9]);
 
-// Sudoku solver (backtracking)
-function isSafe(board, r, c, val) {
   for (let i = 0; i < 9; i++) {
-    if (board[r][i] === val || board[i][c] === val) return false;
+    candidates.delete(board[r][i]);
+    candidates.delete(board[i][c]);
   }
-  const br = Math.floor(r/3)*3, bc = Math.floor(c/3)*3;
-  for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++)
-    if (board[br+i][bc+j] === val) return false;
-  return true;
-}
-function solveBoard(board) {
+
+  const br = Math.floor(r / 3) * 3;
+  const bc = Math.floor(c / 3) * 3;
+  for (let i = 0; i < 3; i++) {
+    for (let j = 0; j < 3; j++) {
+      candidates.delete(board[br + i][bc + j]);
+    }
+  }
+
+  return Array.from(candidates);
+};
+
+const solveOptimized = (board) => {
+  let minCandidates = 10;
+  let bestR = -1;
+  let bestC = -1;
+  let bestCandidates = [];
+
+  // Find the empty cell with the fewest candidates (MRV heuristic)
   for (let r = 0; r < 9; r++) {
     for (let c = 0; c < 9; c++) {
       if (board[r][c] === 0) {
-        for (let v = 1; v <= 9; v++) {
-          if (isSafe(board, r, c, v)) {
-            board[r][c] = v;
-            if (solveBoard(board)) return true;
-            board[r][c] = 0;
-          }
+        const candidates = getCandidates(board, r, c);
+        // If an empty cell has 0 candidates, the board is invalid/unsolvable
+        if (candidates.length === 0) return false;
+        
+        if (candidates.length < minCandidates) {
+          minCandidates = candidates.length;
+          bestR = r;
+          bestC = c;
+          bestCandidates = candidates;
         }
-        return false;
       }
     }
   }
-  return true;
-}
 
-// parse OCR text into 9x9 grid (best-effort)
-function parseTextToGrid(text) {
-  // extract digits
-  const digits = (text.match(/\d/g) || []).map(x => parseInt(x, 10));
-  // if we have exactly 81 digits, split into 9x9
-  if (digits.length >= 81) {
-    const grid = [];
-    for (let r = 0; r < 9; r++) grid.push(digits.slice(r*9, r*9+9));
-    return grid;
+  // If no empty cell found, puzzle is solved
+  if (bestR === -1) return true;
+
+  // Try placing candidates
+  for (const val of bestCandidates) {
+    board[bestR][bestC] = val;
+    if (solveOptimized(board)) return true;
+    board[bestR][bestC] = 0; // backtrack
   }
-  // fallback: return empty grid (frontend should allow manual input)
-  return Array.from({length:9}, ()=>Array(9).fill(0));
-}
 
-// POST /upload endpoint
-app.post('/upload', upload.single('sudokuImage'), async (req, res) => {
+  return false;
+};
+
+// --- Endpoints ---
+
+// POST /solve -> Solves the puzzle instantly
+app.post('/solve', (req, res) => {
   try {
-    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
-    const imagePath = req.file.path;
+    const { grid } = req.body;
+    if (!grid || grid.length !== 9) {
+      return res.status(400).json({ error: 'Invalid grid format. Expected 9x9 array.' });
+    }
 
-    // Run Tesseract on the whole image (simple)
-    const worker = Tesseract.createWorker();
-    await worker.load();
-    await worker.loadLanguage('eng');
-    await worker.initialize('eng');
-    await worker.setParameters({ tessedit_char_whitelist: '0123456789' });
+    const board = grid.map(row => [...row]); // Deep copy
+    const success = solveOptimized(board);
 
-    const { data: { text } } = await worker.recognize(imagePath);
-    await worker.terminate();
-
-    const grid = parseTextToGrid(text);
-
-    // attempt to solve
-    const board = grid.map(row => row.slice());
-    const solved = solveBoard(board) ? board : null;
-
-    // optionally delete uploaded file
-    // fs.unlinkSync(imagePath);
-
-    res.json({ ocrText: text, parsedGrid: grid, solved });
+    if (success) {
+      res.json({ solved: board });
+    } else {
+      res.status(400).json({ error: 'Unsolvable puzzle' });
+    }
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Processing error', details: err.message });
+    res.status(500).json({ error: 'Processing error' });
+  }
+});
+
+// GET /generate -> Returns a basic layout
+// Note: A true generator creates a full board, punches holes, and ensures unique solution.
+// For brevity, we return a hardcoded template or randomly punch holes in a generic board.
+app.get('/generate', (req, res) => {
+  try {
+    const { difficulty } = req.query; // 'easy', 'medium', 'hard'
+    let holesToPunch = 40; // Default medium
+    if (difficulty === 'easy') holesToPunch = 30;
+    if (difficulty === 'hard') holesToPunch = 50;
+    if (difficulty === 'expert') holesToPunch = 60;
+
+    // A valid solved base board
+    const baseBoard = [
+      [5, 3, 4, 6, 7, 8, 9, 1, 2],
+      [6, 7, 2, 1, 9, 5, 3, 4, 8],
+      [1, 9, 8, 3, 4, 2, 5, 6, 7],
+      [8, 5, 9, 7, 6, 1, 4, 2, 3],
+      [4, 2, 6, 8, 5, 3, 7, 9, 1],
+      [7, 1, 3, 9, 2, 4, 8, 5, 6],
+      [9, 6, 1, 5, 3, 7, 2, 8, 4],
+      [2, 8, 7, 4, 1, 9, 6, 3, 5],
+      [3, 4, 5, 2, 8, 6, 1, 7, 9]
+    ];
+
+    // Mix up the base board to create randomness
+    // (Swapping rows within 3x3 bands is valid, swapping columns within 3x3 bands is valid)
+    // A simplified scramble:
+    for (let i=0; i<3; i++) {
+        const bandStart = i * 3;
+        // swap two rows in the band
+        const r1 = bandStart + Math.floor(Math.random() * 3);
+        const r2 = bandStart + Math.floor(Math.random() * 3);
+        const temp = baseBoard[r1];
+        baseBoard[r1] = baseBoard[r2];
+        baseBoard[r2] = temp;
+    }
+
+    const puzzle = baseBoard.map(row => [...row]);
+    let holes = 0;
+    while(holes < holesToPunch) {
+      const r = Math.floor(Math.random() * 9);
+      const c = Math.floor(Math.random() * 9);
+      if (puzzle[r][c] !== 0) {
+        puzzle[r][c] = 0;
+        holes++;
+      }
+    }
+
+    res.json({ grid: puzzle });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to generate puzzle' });
+  }
+});
+
+// POST /difficulty -> Estimates difficulty based on given numbers
+app.post('/difficulty', (req, res) => {
+  try {
+    const { grid } = req.body;
+    let givens = 0;
+    grid.forEach(row => row.forEach(cell => {
+      if (cell !== 0) givens++;
+    }));
+
+    let difficulty = 'Medium';
+    if (givens > 45) difficulty = 'Easy';
+    else if (givens < 30) difficulty = 'Hard';
+    else if (givens < 23) difficulty = 'Expert';
+
+    res.json({ difficulty });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to assess difficulty' });
   }
 });
 
 const PORT = 5000;
-app.listen(PORT, () => console.log(`Server listening on http://localhost:${PORT}`));
+app.listen(PORT, () => console.log(`Server optimized listening on http://localhost:${PORT}`));
