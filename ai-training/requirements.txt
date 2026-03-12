@@ -1,0 +1,9 @@
+tensorflow>=2.16.1
+tensorflowjs>=4.20.0
+opencv-python-headless
+albumentations
+scikit-learn
+numpy
+pandas
+matplotlib
+kaggle
