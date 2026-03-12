@@ -27,6 +27,52 @@ const getCandidates = (board, r, c) => {
   return Array.from(candidates);
 };
 
+const isValidGrid = (board) => {
+  for (let r = 0; r < 9; r++) {
+    const rowSet = new Set();
+    const colSet = new Set();
+    const boxSet = new Set();
+    
+    for (let c = 0; c < 9; c++) {
+      // Check rows
+      if (board[r][c] !== 0) {
+        if (rowSet.has(board[r][c])) return false;
+        rowSet.add(board[r][c]);
+      }
+      // Check columns
+      if (board[c][r] !== 0) {
+        if (colSet.has(board[c][r])) return false;
+        colSet.add(board[c][r]);
+      }
+      
+      // Check boxes
+      const br = Math.floor(r / 3) * 3 + Math.floor(c / 3);
+      const bc = (r % 3) * 3 + (c % 3);
+      const boxR = Math.floor(br / 3) * 3 + Math.floor(bc / 3);
+      const boxC = (br % 3) * 3 + (c % 3);
+      // Wait, let's simplify box checking logic
+    }
+  }
+  
+  // Re-implementing box check for clarity
+  for (let b = 0; b < 9; b++) {
+    const boxSet = new Set();
+    const startR = Math.floor(b / 3) * 3;
+    const startC = (b % 3) * 3;
+    for (let i = 0; i < 3; i++) {
+      for (let j = 0; j < 3; j++) {
+        const val = board[startR + i][startC + j];
+        if (val !== 0) {
+          if (boxSet.has(val)) return false;
+          boxSet.add(val);
+        }
+      }
+    }
+  }
+  
+  return true;
+};
+
 const solveOptimized = (board) => {
   let minCandidates = 10;
   let bestR = -1;
@@ -69,12 +115,40 @@ const solveOptimized = (board) => {
 // POST /solve -> Solves the puzzle instantly
 app.post('/solve', (req, res) => {
   try {
-    const { grid } = req.body;
+    const { grid, uncertainties } = req.body;
     if (!grid || grid.length !== 9) {
       return res.status(400).json({ error: 'Invalid grid format. Expected 9x9 array.' });
     }
 
     const board = grid.map(row => [...row]); // Deep copy
+    
+    // 1. Check for initial conflicts
+    if (!isValidGrid(board)) {
+      // Dual-Guess Logic: If grid is invalid, try to resolve conflicts by swapping uncertain digits
+      let fixed = false;
+      if (uncertainties && Object.keys(uncertainties).length > 0) {
+        for (const [cellIdx, secondGuess] of Object.entries(uncertainties)) {
+          const r = Math.floor(parseInt(cellIdx) / 9);
+          const c = parseInt(cellIdx) % 9;
+          const originalVal = board[r][c];
+          
+          // Temporarily swap and check validity
+          board[r][c] = secondGuess;
+          if (isValidGrid(board)) {
+            fixed = true;
+            console.log(`Resolved conflict at cell ${cellIdx}: swapped ${originalVal} -> ${secondGuess}`);
+            break; 
+          }
+          // Swap back and try next
+          board[r][c] = originalVal;
+        }
+      }
+
+      if (!fixed) {
+        return res.status(400).json({ error: 'Grid has conflicting numbers. Please check your image or edits.' });
+      }
+    }
+
     const success = solveOptimized(board);
 
     if (success) {
@@ -164,5 +238,5 @@ app.post('/difficulty', (req, res) => {
   }
 });
 
-const PORT = 5000;
+const PORT = 5001;
 app.listen(PORT, () => console.log(`Server optimized listening on http://localhost:${PORT}`));
