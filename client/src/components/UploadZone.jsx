@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import { extractGrid } from '../utils/opencv';
 import { recognizeDigits } from '../utils/ocr';
 
@@ -11,6 +11,7 @@ export default function UploadZone({ onGridReady, isProcessing }) {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const fileInputRef = useRef(null);
+  const MotionDiv = motion.div;
 
   const processImage = async (imageSrc) => {
     try {
@@ -24,13 +25,19 @@ export default function UploadZone({ onGridReady, isProcessing }) {
       const cellMats = await extractGrid(img);
       
       // Run TF.js OCR
-      const grid = await recognizeDigits(cellMats);
+      const { grid, uncertainties, debugImages, status: ocrStatus } = await recognizeDigits(cellMats);
       
+      if (ocrStatus === "demo") {
+        setError("AI model unavailable – running in demo mode");
+      } else {
+        setError(null);
+      }
+
       // Send extracted grid up to App
-      onGridReady(grid);
+      onGridReady(grid, uncertainties, { ocrStatus, debugImages });
     } catch (err) {
       console.error(err);
-      setError("Failed to read Sudoku from image. Please try a clearer picture.");
+      setError(`Failed to read Sudoku from image: ${err.message || err.toString()}`);
     }
   };
 
@@ -109,7 +116,7 @@ export default function UploadZone({ onGridReady, isProcessing }) {
     <div className="w-full max-w-md mx-auto mb-6">
       <AnimatePresence mode="wait">
         {cameraActive ? (
-          <motion.div 
+          <MotionDiv 
             key="camera"
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -132,9 +139,9 @@ export default function UploadZone({ onGridReady, isProcessing }) {
                 Capture Grid
               </button>
             </div>
-          </motion.div>
+          </MotionDiv>
         ) : (
-          <motion.div 
+          <MotionDiv 
             key="upload"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -173,25 +180,25 @@ export default function UploadZone({ onGridReady, isProcessing }) {
                     </button>
                     <button 
                       onClick={startCamera}
-                      className="px-5 py-2.5 bg-gradient-to-r from-[#4fd1c5] to-[#9f7aea] text-black hover:opacity-90 transition rounded-lg text-sm font-bold shadow-[0_0_10px_rgba(159,122,234,0.4)]"
+                      className="px-5 py-2.5 bg-linear-to-r from-[#4fd1c5] to-[#9f7aea] text-black hover:opacity-90 transition rounded-lg text-sm font-bold shadow-[0_0_10px_rgba(159,122,234,0.4)]"
                     >
                       Open Camera
                     </button>
                   </div>
                 </>
              )}
-          </motion.div>
+          </MotionDiv>
         )}
       </AnimatePresence>
 
       {error && (
-        <motion.div 
+        <MotionDiv 
           initial={{ opacity: 0, y: -10 }} 
           animate={{ opacity: 1, y: 0 }} 
           className="mt-4 p-3 rounded-lg bg-red-500/10 border border-red-500/50 text-red-500 text-sm text-center"
         >
           {error}
-        </motion.div>
+        </MotionDiv>
       )}
     </div>
   );
