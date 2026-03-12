@@ -6,11 +6,15 @@ export default function SudokuGrid({
   onSelectCell,
   invalidCells = [],
   lockedCells = [],
-  solvedCells = []
+  solvedCells = [],
+  debugImages = [],
+  showDebug = false
 }) {
   const isLocked = (r, c) => lockedCells.some(([lr, lc]) => lr === r && lc === c);
   const isSolved = (r, c) => solvedCells.some(([sr, sc]) => sr === r && sc === c);
   const isInvalid = (r, c) => invalidCells.some(([ir, ic]) => ir === r && ic === c);
+  const MotionDiv = motion.div;
+  const MotionSpan = motion.span;
 
   return (
     <div className="w-full max-w-md mx-auto aspect-square bg-[#2d3748] rounded border-4 border-[#1a202c] shadow-[0_0_25px_rgba(0,0,0,0.5)] overflow-hidden">
@@ -27,7 +31,7 @@ export default function SudokuGrid({
             const borderBottom = r % 3 === 2 && r !== 8 ? 'border-b-2 border-[#1a202c]' : 'border-b border-[#4a5568]';
 
             return (
-              <motion.div
+              <MotionDiv
                 key={`${r}-${c}`}
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
@@ -43,16 +47,24 @@ export default function SudokuGrid({
                   ${selected && !locked ? 'ring-2 ring-inset ring-[#4fd1c5] bg-[#4fd1c5]/20' : ''}
                 `}
               >
+                {showDebug && debugImages[r * 9 + c] && (
+                  <img 
+                    src={debugImages[r * 9 + c]} 
+                    alt="AI View" 
+                    className="absolute inset-0 w-full h-full opacity-50 pointer-events-none mix-blend-screen"
+                  />
+                )}
                 {cell !== 0 && cell !== null ? (
-                  <motion.span
+                  <MotionSpan
                     initial={solved ? { scale: 0.5, opacity: 0 } : false}
                     animate={{ scale: 1, opacity: 1 }}
                     transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                    className="relative z-10"
                   >
                     {cell}
-                  </motion.span>
+                  </MotionSpan>
                 ) : ''}
-              </motion.div>
+              </MotionDiv>
             );
           })
         )}
