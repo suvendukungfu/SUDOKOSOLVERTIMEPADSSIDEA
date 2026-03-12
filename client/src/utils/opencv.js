@@ -25,6 +25,7 @@ export const waitForOpenCV = async () => {
 };
 
 const findLargestSquare = (contours) => {
+  const cv = window.cv;
   let maxArea = 0;
   let maxContour = null;
 
@@ -70,6 +71,7 @@ const calculateDistance = (p1, p2) => {
 
 export const extractGrid = async (imageElement) => {
   await waitForOpenCV();
+  const cv = window.cv;
   
   const src = cv.imread(imageElement);
   
@@ -140,10 +142,9 @@ export const extractGrid = async (imageElement) => {
   const warped = new cv.Mat();
   const dsize = new cv.Size(sideLength, sideLength);
   
-  // Warp the original color image (it is better for processing digits later if needed, but gray works well too)
-  // Let's warp the thresholded image for OCR to make logic easier later
-  const warpedThresh = new cv.Mat();
-  cv.warpPerspective(thresh, warpedThresh, transformMatrix, dsize, cv.INTER_LINEAR, cv.BORDER_CONSTANT, new cv.Scalar());
+  // 🚀 CRITICAL: Warp the GRAYSCALE image instead of the thresh image.
+  // This allows the OCR pipeline to perform specialized per-cell thresholding.
+  cv.warpPerspective(gray, warped, transformMatrix, dsize, cv.INTER_LINEAR, cv.BORDER_CONSTANT, new cv.Scalar());
 
   // 5. Slice into 81 cells
   const cellSize = sideLength / 9;
@@ -157,12 +158,10 @@ export const extractGrid = async (imageElement) => {
       const h = Math.round(cellSize);
       
       const rect = new cv.Rect(x, y, w, h);
-      const cellMat = warpedThresh.roi(rect);
+      const cellMat = warped.roi(rect);
       
-      // Remove outer noise (grid borders) from the cell
-      const cleanCell = cleanOuterBorders(cellMat);
-      
-      cells.push(cleanCell);
+      // Clone it so we can delete the warped source later
+      cells.push(cellMat.clone());
       
       cellMat.delete();
     }
@@ -172,29 +171,8 @@ export const extractGrid = async (imageElement) => {
   src.delete(); gray.delete(); blurred.delete(); thresh.delete();
   contours.delete(); hierarchy.delete(); largestSquare.delete();
   srcCoords.delete(); dstCoords.delete(); transformMatrix.delete();
-  warped.delete(); warpedThresh.delete();
+  warped.delete();
 
   return cells; // Returns array of cv.Mat (Must be deleted by caller later!)
 };
 
-// Removes the Sudoku cell borders remaining in the cropped cell
-const cleanOuterBorders = (cellMat) => {
-  const result = cellMat.clone();
-  
-  // Create a border of 0s (black) around the edge to clear grid lines
-  const borderSize = Math.floor(cellMat.rows * 0.1); // Clear 10% from edges
-  
-  const rect = new cv.Rect(0, 0, borderSize, result.rows);
-  result.roi(rect).setTo(new cv.Scalar(0));
-  
-  const rect2 = new cv.Rect(result.cols - borderSize, 0, borderSize, result.rows);
-  result.roi(rect2).setTo(new cv.Scalar(0));
-  
-  const rect3 = new cv.Rect(0, 0, result.cols, borderSize);
-  result.roi(rect3).setTo(new cv.Scalar(0));
-  
-  const rect4 = new cv.Rect(0, result.rows - borderSize, result.cols, borderSize);
-  result.roi(rect4).setTo(new cv.Scalar(0));
-
-  return result;
-};
