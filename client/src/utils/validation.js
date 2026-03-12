@@ -30,3 +30,20 @@ export function isValidMove(grid, row, col, value) {
   return true;
 }
 
+export function findGridConflicts(grid) {
+  const conflicts = [];
+  
+  for (let r = 0; r < 9; r++) {
+    for (let c = 0; c < 9; c++) {
+      const val = grid[r][c];
+      if (val !== null && val !== 0) {
+        if (!isValidMove(grid, r, c, val)) {
+          conflicts.push([r, c]);
+        }
+      }
+    }
+  }
+  
+  return conflicts;
+}
+
