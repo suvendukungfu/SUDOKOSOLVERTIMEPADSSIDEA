@@ -1,0 +1,7 @@
+tensorflow-macos==2.15.0
+tensorflow-metal==1.2.0
+numpy==1.26.4
+opencv-python==4.11.0.86
+scikit-learn==1.8.0
+matplotlib==3.10.8
+tensorflowjs==3.15.0
