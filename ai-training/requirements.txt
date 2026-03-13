@@ -1,5 +1,6 @@
 tensorflow>=2.16.1
 tensorflowjs>=4.20.0
+tensorflow-datasets>=4.9.6
 opencv-python-headless
 albumentations
 scikit-learn

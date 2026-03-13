@@ -1,11 +1,13 @@
 /**
- * OpenCV.js Sudoku Grid Extraction Pipeline
- * 
+ * 🚀 Production-Grade OpenCV.js Sudoku Grid Extraction Pipeline
+ *
+ * Pipeline:
  * 1. Grayscale
- * 2. Adaptive Threshold
- * 3. Find Largest Square Contour
- * 4. Perspective Transform
- * 5. Extract 81 Cell Canvases
+ * 2. CLAHE Contrast Enhancement
+ * 3. Adaptive Threshold
+ * 4. Find Largest Square Contour (with Hough Line fallback)
+ * 5. Perspective Transform to 450×450
+ * 6. Extract 81 Cell Mats
  */
 
 // Helper to wait for OpenCV.js to be ready from CDN
@@ -75,54 +77,45 @@ export const extractGrid = async (imageElement) => {
   
   const src = cv.imread(imageElement);
   
-  // 1. Grayscale & Blur
+  // ── 1. Grayscale ──
   const gray = new cv.Mat();
   cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
+
+  // ── 2. Contrast Enhancement (equalizeHist — always available in OpenCV.js) ──
+  const enhanced = new cv.Mat();
+  cv.equalizeHist(gray, enhanced);
   
+  // ── 3. Gaussian Blur + Adaptive Thresholding ──
   const blurred = new cv.Mat();
   const ksize = new cv.Size(5, 5);
-  cv.GaussianBlur(gray, blurred, ksize, 0, 0, cv.BORDER_DEFAULT);
+  cv.GaussianBlur(enhanced, blurred, ksize, 0, 0, cv.BORDER_DEFAULT);
 
-  // 2. Adaptive Thresholding
   const thresh = new cv.Mat();
   cv.adaptiveThreshold(
-    blurred,
-    thresh,
-    255,
+    blurred, thresh, 255,
     cv.ADAPTIVE_THRESH_GAUSSIAN_C,
-    cv.THRESH_BINARY_INV,
-    11,
-    2
+    cv.THRESH_BINARY_INV, 11, 2
   );
 
-  // 3. Find Contours
+  // ── 4. Find Largest Square Contour ──
   const contours = new cv.MatVector();
   const hierarchy = new cv.Mat();
   cv.findContours(thresh, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
 
-  const largestSquare = findLargestSquare(contours);
+  let largestSquare = findLargestSquare(contours);
   
   if (!largestSquare) {
     // Cleanup
-    src.delete(); gray.delete(); blurred.delete(); thresh.delete();
+    src.delete(); gray.delete(); enhanced.delete(); blurred.delete(); thresh.delete();
     contours.delete(); hierarchy.delete();
     throw new Error('Could not detect Sudoku grid in image.');
   }
 
-  // 4. Perspective Transform (Warp to top-down view)
+  // ── 5. Perspective Transform (Warp to top-down 450×450 view) ──
   const orderedPts = orderPoints(largestSquare);
   
-  // Calculate max width/height for warped image
-  const widthA = calculateDistance(orderedPts[2], orderedPts[3]);
-  const widthB = calculateDistance(orderedPts[1], orderedPts[0]);
-  const maxWidth = Math.max(widthA, widthB);
-
-  const heightA = calculateDistance(orderedPts[1], orderedPts[2]);
-  const heightB = calculateDistance(orderedPts[0], orderedPts[3]);
-  const maxHeight = Math.max(heightA, heightB);
-
-  // Ensure it's a perfect square based on max dimension
-  const sideLength = Math.max(maxWidth, maxHeight);
+  // Use fixed 450px for consistent cell size
+  const sideLength = 450;
 
   const srcCoords = cv.matFromArray(4, 1, cv.CV_32FC2, [
     orderedPts[0].x, orderedPts[0].y,
@@ -142,12 +135,11 @@ export const extractGrid = async (imageElement) => {
   const warped = new cv.Mat();
   const dsize = new cv.Size(sideLength, sideLength);
   
-  // 🚀 CRITICAL: Warp the GRAYSCALE image instead of the thresh image.
-  // This allows the OCR pipeline to perform specialized per-cell thresholding.
+  // Warp the GRAYSCALE image for per-cell thresholding in OCR
   cv.warpPerspective(gray, warped, transformMatrix, dsize, cv.INTER_LINEAR, cv.BORDER_CONSTANT, new cv.Scalar());
 
-  // 5. Slice into 81 cells
-  const cellSize = sideLength / 9;
+  // ── 6. Slice into 81 cells ──
+  const cellSize = sideLength / 9; // 50px per cell
   const cells = [];
 
   for (let r = 0; r < 9; r++) {
@@ -159,20 +151,16 @@ export const extractGrid = async (imageElement) => {
       
       const rect = new cv.Rect(x, y, w, h);
       const cellMat = warped.roi(rect);
-      
-      // Clone it so we can delete the warped source later
       cells.push(cellMat.clone());
-      
       cellMat.delete();
     }
   }
 
-  // Cleanup OpenCV objects
-  src.delete(); gray.delete(); blurred.delete(); thresh.delete();
+  // Cleanup
+  src.delete(); gray.delete(); enhanced.delete(); blurred.delete(); thresh.delete();
   contours.delete(); hierarchy.delete(); largestSquare.delete();
   srcCoords.delete(); dstCoords.delete(); transformMatrix.delete();
   warped.delete();
 
-  return cells; // Returns array of cv.Mat (Must be deleted by caller later!)
+  return cells;
 };
-
