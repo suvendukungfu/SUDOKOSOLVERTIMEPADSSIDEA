@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+server/node_modules/
+client/node_modules/
+model-trainer/node_modules/
+
+# Build outputs
+dist/
+coverage/
+client/dist/
+server/dist/
+model-trainer/dist-model/
+
+# Logs and runtime files
+*.log
+*.pid
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Local caches
+.DS_Store
+client/.npm_cache/
+model-trainer/.cache/
+model-trainer/.npm_cache/
+
+# Environment files
+.env
+.env.*
