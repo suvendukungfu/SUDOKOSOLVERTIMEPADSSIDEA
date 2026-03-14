@@ -13,6 +13,11 @@ import Controls from "./components/Controls";
 import { findGridConflicts } from "./utils/validation";
 import { solveGrid } from "./utils/solverClient";
 import { loadAIModel } from "./utils/modelLoader";
+import {
+  applySolvedCorrectionsToGivens,
+  buildRecoveryUncertainties,
+  removeResolvedUncertainties,
+} from "./utils/ocrRecovery";
 
 const emptyGrid = Array.from({ length: 9 }, () => Array(9).fill(null));
 
@@ -111,20 +116,59 @@ export default function App() {
   }, []);
 
   // Process OCR extracted grid
-  const handleGridExtracted = (extractedGrid, uncertaintiesMap, statusObj) => {
-    setIsProcessing(false);
+  const handleGridExtracted = async (extractedGrid, uncertaintiesMap, statusObj) => {
     if (statusObj?.ocrStatus) setModelStatus(statusObj.ocrStatus);
     
     // Transform formatting (0 -> null for UI)
     const formattedGrid = extractedGrid.map(row => row.map(cell => cell === 0 ? null : cell));
-    const uncertaintyCount = Object.keys(uncertaintiesMap || {}).length;
-    setGrid(formattedGrid);
-    setUncertainties(uncertaintiesMap || {});
+    let nextGrid = formattedGrid;
+    let nextConflicts = findGridConflicts(formattedGrid);
+    let nextUncertainties = buildRecoveryUncertainties(formattedGrid, uncertaintiesMap, nextConflicts);
+    let autoCorrections = [];
+    let autoRecovered = false;
+
     setDebugImages(statusObj.debugImages || new Array(81).fill(null));
+
+    if (statusObj?.ocrStatus !== "demo" && (nextConflicts.length > 0 || Object.keys(nextUncertainties).length > 0)) {
+      try {
+        setIsProcessing(true);
+        setStatusMessage("Reconciling OCR digits with Sudoku rules...");
+
+        const requestGrid = formattedGrid.map((row) => row.map((cell) => (cell === null ? 0 : cell)));
+        const result = await solveGrid(requestGrid, nextUncertainties);
+
+        if (result?.solved) {
+          const correctedGrid = applySolvedCorrectionsToGivens(formattedGrid, result.solved);
+          const correctedConflicts = findGridConflicts(correctedGrid);
+          const correctedCount = (result.corrections || []).length;
+
+          if (
+            correctedCount > 0 ||
+            correctedConflicts.length < nextConflicts.length
+          ) {
+            nextGrid = correctedGrid;
+            nextConflicts = correctedConflicts;
+            autoCorrections = result.corrections || [];
+            nextUncertainties = removeResolvedUncertainties(nextUncertainties, autoCorrections);
+            autoRecovered = correctedCount > 0 || correctedConflicts.length === 0;
+          }
+        }
+      } catch (err) {
+        console.warn("OCR reconciliation could not auto-correct the extracted board.", err);
+      } finally {
+        setIsProcessing(false);
+      }
+    } else {
+      setIsProcessing(false);
+    }
+
+    const uncertaintyCount = Object.keys(nextUncertainties).length;
+    setGrid(nextGrid);
+    setUncertainties(nextUncertainties);
     
     // Auto-lock non-null cells as givens
     const locked = [];
-    formattedGrid.forEach((row, r) =>
+    nextGrid.forEach((row, r) =>
       row.forEach((cell, c) => {
         if (cell !== null) locked.push([r, c]);
       })
@@ -132,20 +176,23 @@ export default function App() {
     setLockedCells(locked);
     setSolvedCells([]);
     
-    // Auto-detect conflicts from OCR
-    const conflicts = findGridConflicts(formattedGrid);
-    setInvalidCells(conflicts);
+    setInvalidCells(nextConflicts);
     
-    if (conflicts.length > 0) {
+    if (nextConflicts.length > 0) {
       setError("AI detected some conflicts in the image. Please verify highlighted cells.");
       setStatusMessage(
-        `OCR finished with ${conflicts.length} conflict${conflicts.length === 1 ? "" : "s"} and ${uncertaintyCount} uncertain cell${uncertaintyCount === 1 ? "" : "s"}.`
+        autoCorrections.length > 0
+          ? `OCR auto-corrected ${autoCorrections.length} cell${autoCorrections.length === 1 ? "" : "s"}, but ${nextConflicts.length} conflict${nextConflicts.length === 1 ? "" : "s"} still need review.`
+          : `OCR finished with ${nextConflicts.length} conflict${nextConflicts.length === 1 ? "" : "s"} and ${uncertaintyCount} uncertain cell${uncertaintyCount === 1 ? "" : "s"}.`
       );
     } else {
-      const givens = formattedGrid.flat().filter((cell) => cell !== null).length;
+      const givens = nextGrid.flat().filter((cell) => cell !== null).length;
+      setError(null);
       setStatusMessage(
-        uncertaintyCount > 0
-          ? `Sudoku grid extracted with ${givens} filled cells. ${uncertaintyCount} OCR cell${uncertaintyCount === 1 ? "" : "s"} flagged as uncertain.`
+        autoRecovered && autoCorrections.length > 0
+          ? `Sudoku grid extracted and auto-corrected ${autoCorrections.length} OCR cell${autoCorrections.length === 1 ? "" : "s"}. ${givens} givens are ready.`
+          : uncertaintyCount > 0
+            ? `Sudoku grid extracted with ${givens} filled cells. ${uncertaintyCount} OCR cell${uncertaintyCount === 1 ? "" : "s"} flagged as uncertain.`
           : `Sudoku grid extracted successfully with ${givens} filled cells.`
       );
     }

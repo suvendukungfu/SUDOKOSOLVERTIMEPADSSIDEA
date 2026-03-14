@@ -65,7 +65,7 @@ export default function UploadZone({ onGridReady, isProcessing, onProcessingChan
       }
 
       // Send extracted grid up to App
-      onGridReady(grid, uncertainties, { ocrStatus, debugImages });
+      await onGridReady?.(grid, uncertainties, { ocrStatus, debugImages });
     } catch (err) {
       console.error(err);
       setError(`Failed to read Sudoku from image: ${err.message || err.toString()}`);
