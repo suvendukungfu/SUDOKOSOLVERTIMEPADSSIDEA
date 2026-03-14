@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 
 export default function Controls({
   isProcessing,
@@ -10,7 +10,7 @@ export default function Controls({
   canSolve = true,
   canLock = true
 }) {
-  const MotionButton = motion.button;
+  const MotionButton = m.button;
 
   return (
     <div className="mt-6 space-y-4">

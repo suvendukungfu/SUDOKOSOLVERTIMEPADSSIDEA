@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { motion } from "framer-motion";
+import { LazyMotion, domAnimation, m } from "framer-motion";
 
 import "./styles/theme.css";
 import "./styles/grid.css";
@@ -62,8 +62,8 @@ export default function App() {
     };
   }, []);
 
-  const MotionH1 = motion.h1;
-  const MotionDiv = motion.div;
+  const MotionH1 = m.h1;
+  const MotionDiv = m.div;
 
   const isLocked = useCallback((r, c) =>
     lockedCells.some(([lr, lc]) => lr === r && lc === c), [lockedCells]);
@@ -228,7 +228,8 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#111827] text-white px-4 py-6 md:px-6 md:py-8 font-sans relative overflow-hidden">
+    <LazyMotion features={domAnimation}>
+      <div className="min-h-screen bg-[#111827] text-white px-4 py-6 md:px-6 md:py-8 font-sans relative overflow-hidden">
       
       {/* Background Neon Gradients */}
       <div className="absolute top-[-8%] left-[-8%] h-72 w-72 bg-[#4fd1c5] rounded-full blur-[120px] opacity-10 pointer-events-none"></div>
@@ -369,6 +370,7 @@ export default function App() {
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </LazyMotion>
   );
 }

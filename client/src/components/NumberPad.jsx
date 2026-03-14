@@ -1,8 +1,8 @@
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 
 export default function NumberPad({ onInput, disabled = false }) {
   const numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9];
-  const MotionButton = motion.button;
+  const MotionButton = m.button;
 
   return (
     <div className="mt-2">

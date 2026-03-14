@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 
 export default function SudokuGrid({
   grid,
@@ -13,8 +13,8 @@ export default function SudokuGrid({
   const isLocked = (r, c) => lockedCells.some(([lr, lc]) => lr === r && lc === c);
   const isSolved = (r, c) => solvedCells.some(([sr, sc]) => sr === r && sc === c);
   const isInvalid = (r, c) => invalidCells.some(([ir, ic]) => ir === r && ic === c);
-  const MotionButton = motion.button;
-  const MotionSpan = motion.span;
+  const MotionButton = m.button;
+  const MotionSpan = m.span;
 
   return (
     <div className="w-full max-w-[min(92vw,34rem)] mx-auto aspect-square bg-[#111827] rounded-[28px] border border-white/10 p-2 shadow-[0_0_25px_rgba(0,0,0,0.35)] overflow-hidden">

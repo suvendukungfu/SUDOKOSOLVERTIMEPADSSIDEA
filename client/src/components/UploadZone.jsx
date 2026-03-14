@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, m } from 'framer-motion';
 
 let visionModulesPromise = null;
 
@@ -26,7 +26,7 @@ export default function UploadZone({ onGridReady, isProcessing, onProcessingChan
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const fileInputRef = useRef(null);
-  const MotionDiv = motion.div;
+  const MotionDiv = m.div;
 
   useEffect(() => () => stopCamera(), []);
 
