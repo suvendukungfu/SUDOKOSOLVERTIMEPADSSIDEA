@@ -1,14 +1,17 @@
 import { getTensorFlow, loadAIModel } from "./modelLoader";
 import { DEMO_BOARD } from "./fallbackDemoBoard";
+import { resolveDigitPrediction } from "./digitHeuristics";
 
 /**
- * 🚀 Professional OCR Pipeline v3
- * Implements all 8 improvements for robust 1 vs 7 recognition:
+ * 🚀 Professional OCR Pipeline v4
+ * Adds targeted 1 vs 7 disambiguation on top of the digit model:
  * 1️⃣ Connected Component digit extraction
  * 2️⃣ Bounding box centering
  * 3️⃣ Stroke thickness preservation (no morphological ops)
  * 4️⃣ Pixel normalization [0,1], shape [28,28,1]
- * 7️⃣ Confidence filtering (< 0.6 → empty)
+ * 5️⃣ Shape-based 1/7 disambiguation
+ * 6️⃣ Alternate-candidate uncertainty tracking
+ * 7️⃣ Confidence filtering (< 0.6 → empty unless ambiguity recovery succeeds)
  * 8️⃣ Debug visualization
  */
 
@@ -162,23 +165,43 @@ export const recognizeDigits = async (cellMats) => {
     // ── Prediction with Debug Logging (requirements 7️⃣ & 8️⃣) ──
     console.log("─── OCR Predictions ───");
     preds.forEach((probs, i) => {
-      const indexedProbs = probs.map((p, idx) => ({ p, idx }));
-      indexedProbs.sort((a, b) => b.p - a.p);
-      
-      const best = indexedProbs[0];
-      const second = indexedProbs[1];
       const cellIdx = indices[i];
       const r = Math.floor(cellIdx / 9), c = cellIdx % 9;
-      
-      // Debug log (requirement 8️⃣)
-      console.log(`  [${r},${c}] → ${best.idx} (${(best.p*100).toFixed(1)}%)  runner-up: ${second.idx} (${(second.p*100).toFixed(1)}%)`);
+      const resolution = resolveDigitPrediction(probs, tensorsToPredict[i]);
+      const { best, second, prediction, alternatives, lowConfidence, note, shapeHint } = resolution;
 
-      // Confidence filtering (requirement 7️⃣)
-      if (best.p >= 0.6) {
-        predictions[cellIdx] = best.idx;
+      const detailParts = [
+        `[${r},${c}] → ${best.idx} (${(best.p * 100).toFixed(1)}%)`,
+      ];
+
+      if (second?.idx !== null) {
+        detailParts.push(`runner-up: ${second.idx} (${(second.p * 100).toFixed(1)}%)`);
+      }
+
+      if (prediction !== 0 && prediction !== best.idx) {
+        detailParts.push(`resolved as ${prediction}`);
+      }
+
+      if (shapeHint?.prediction) {
+        detailParts.push(`shape:${shapeHint.prediction} (${shapeHint.reason})`);
+      }
+
+      if (note) {
+        detailParts.push(note);
+      }
+
+      console.log(`  ${detailParts.join("  ")}`);
+
+      if (prediction !== 0) {
+        predictions[cellIdx] = prediction;
+
+        if (alternatives.length > 0) {
+          uncertainties[cellIdx] = alternatives;
+          console.log(`    ↳ tracking alternate(s): ${alternatives.join(", ")}`);
+        }
       } else {
         predictions[cellIdx] = 0; // Treat as empty
-        uncertainties[cellIdx] = best.idx;
+        uncertainties[cellIdx] = alternatives.length > 0 ? alternatives : [best.idx];
         console.log(`    ⚠ LOW CONFIDENCE — treating as empty`);
       }
     });
@@ -193,7 +216,7 @@ export const recognizeDigits = async (cellMats) => {
   }
 
   const endTime = performance.now();
-  console.log(`Professional OCR Pipeline v3 took ${Math.round(endTime - startTime)}ms total.`);
+  console.log(`Professional OCR Pipeline v4 took ${Math.round(endTime - startTime)}ms total.`);
 
   return { grid, uncertainties, debugImages, status };
 };

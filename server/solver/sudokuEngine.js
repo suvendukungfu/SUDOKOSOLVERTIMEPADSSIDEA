@@ -187,17 +187,34 @@ const solvePuzzleWithSteps = (grid) => {
   return { solved: board, steps };
 };
 
+const parseUncertaintyValues = (value) => {
+  const rawValues = Array.isArray(value) ? value : [value];
+  const parsedValues = [];
+
+  for (const candidate of rawValues) {
+    const parsedValue = Number(candidate);
+    if (
+      Number.isInteger(parsedValue) &&
+      parsedValue >= 1 &&
+      parsedValue <= BOARD_SIZE &&
+      !parsedValues.includes(parsedValue)
+    ) {
+      parsedValues.push(parsedValue);
+    }
+  }
+
+  return parsedValues;
+};
+
 const parseUncertaintyEntry = ([cellIndex, value]) => {
   const parsedIndex = Number.parseInt(cellIndex, 10);
-  const parsedValue = Number(value);
+  const parsedValues = parseUncertaintyValues(value);
 
   if (
     Number.isNaN(parsedIndex) ||
     parsedIndex < 0 ||
     parsedIndex >= BOARD_SIZE * BOARD_SIZE ||
-    !Number.isInteger(parsedValue) ||
-    parsedValue < 1 ||
-    parsedValue > BOARD_SIZE
+    parsedValues.length === 0
   ) {
     return null;
   }
@@ -205,8 +222,47 @@ const parseUncertaintyEntry = ([cellIndex, value]) => {
   return {
     row: Math.floor(parsedIndex / BOARD_SIZE),
     col: parsedIndex % BOARD_SIZE,
-    value: parsedValue,
+    values: parsedValues,
   };
+};
+
+const searchUncertaintyCorrections = (board, entries, index = 0, corrections = []) => {
+  if (isValidGrid(board)) {
+    const solved = solvePuzzle(board);
+    if (solved) {
+      return { solved, corrections };
+    }
+  }
+
+  if (index >= entries.length) {
+    return null;
+  }
+
+  const skipped = searchUncertaintyCorrections(board, entries, index + 1, corrections);
+  if (skipped) {
+    return skipped;
+  }
+
+  const { row, col, values } = entries[index];
+  const previousValue = board[row][col];
+
+  for (const value of values) {
+    if (value === previousValue) continue;
+
+    const candidateBoard = cloneBoard(board);
+    candidateBoard[row][col] = value;
+
+    const result = searchUncertaintyCorrections(candidateBoard, entries, index + 1, [
+      ...corrections,
+      { row, col, from: previousValue, to: value },
+    ]);
+
+    if (result) {
+      return result;
+    }
+  }
+
+  return null;
 };
 
 const solvePuzzleWithUncertainties = (grid, uncertainties = {}) => {
@@ -216,37 +272,31 @@ const solvePuzzleWithUncertainties = (grid, uncertainties = {}) => {
 
   if (isValidGrid(grid)) {
     const solved = solvePuzzle(grid);
-    return solved ? { solved, correction: null } : null;
-  }
-
-  for (const entry of Object.entries(uncertainties)) {
-    const parsed = parseUncertaintyEntry(entry);
-    if (!parsed) continue;
-
-    const { row, col, value } = parsed;
-    const candidateBoard = cloneBoard(grid);
-    const previousValue = candidateBoard[row][col];
-    candidateBoard[row][col] = value;
-
-    if (!isValidGrid(candidateBoard)) {
-      continue;
-    }
-
-    const solved = solvePuzzle(candidateBoard);
     if (solved) {
-      return {
-        solved,
-        correction: {
-          row,
-          col,
-          from: previousValue,
-          to: value,
-        },
-      };
+      return { solved, correction: null, corrections: [] };
     }
   }
 
-  return null;
+  const parsedEntries = Object.entries(uncertainties)
+    .map(parseUncertaintyEntry)
+    .filter(Boolean)
+    .filter(({ row, col }) => grid[row][col] !== 0)
+    .sort((a, b) => a.values.length - b.values.length);
+
+  if (parsedEntries.length === 0) {
+    return null;
+  }
+
+  const result = searchUncertaintyCorrections(grid, parsedEntries);
+  if (!result) {
+    return null;
+  }
+
+  return {
+    solved: result.solved,
+    correction: result.corrections[0] ?? null,
+    corrections: result.corrections,
+  };
 };
 
 const estimateDifficulty = (grid) => {

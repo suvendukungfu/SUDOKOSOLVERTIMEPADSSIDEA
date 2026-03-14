@@ -72,6 +72,7 @@ export default function App() {
     if (!selectedCell) return;
 
     const [row, col] = selectedCell;
+    const cellIndex = row * 9 + col;
     if (isLocked(row, col)) return; // block edit if given
 
     const newGrid = grid.map((r) => [...r]);
@@ -89,6 +90,12 @@ export default function App() {
         ? `Cleared row ${row + 1}, column ${col + 1}.`
         : `Updated row ${row + 1}, column ${col + 1} to ${value}.`
     );
+    setUncertainties((prev) => {
+      if (!(cellIndex in prev)) return prev;
+      const next = { ...prev };
+      delete next[cellIndex];
+      return next;
+    });
 
     setGrid(newGrid);
   }, [grid, isLocked, selectedCell]);
@@ -110,6 +117,7 @@ export default function App() {
     
     // Transform formatting (0 -> null for UI)
     const formattedGrid = extractedGrid.map(row => row.map(cell => cell === 0 ? null : cell));
+    const uncertaintyCount = Object.keys(uncertaintiesMap || {}).length;
     setGrid(formattedGrid);
     setUncertainties(uncertaintiesMap || {});
     setDebugImages(statusObj.debugImages || new Array(81).fill(null));
@@ -130,10 +138,16 @@ export default function App() {
     
     if (conflicts.length > 0) {
       setError("AI detected some conflicts in the image. Please verify highlighted cells.");
-      setStatusMessage("OCR finished, but a few cells need manual review.");
+      setStatusMessage(
+        `OCR finished with ${conflicts.length} conflict${conflicts.length === 1 ? "" : "s"} and ${uncertaintyCount} uncertain cell${uncertaintyCount === 1 ? "" : "s"}.`
+      );
     } else {
       const givens = formattedGrid.flat().filter((cell) => cell !== null).length;
-      setStatusMessage(`Sudoku grid extracted successfully with ${givens} filled cells.`);
+      setStatusMessage(
+        uncertaintyCount > 0
+          ? `Sudoku grid extracted with ${givens} filled cells. ${uncertaintyCount} OCR cell${uncertaintyCount === 1 ? "" : "s"} flagged as uncertain.`
+          : `Sudoku grid extracted successfully with ${givens} filled cells.`
+      );
     }
 
     setSelectedCell(null);
@@ -142,12 +156,13 @@ export default function App() {
   // Trigger Backend Solver
   const handleSolve = async () => {
     const filledCells = grid.flat().filter((cell) => cell !== null && cell !== 0).length;
+    const autoCorrectionCandidates = Object.keys(uncertainties).length;
     if (filledCells === 0) {
       setError("Add a puzzle before requesting a solution.");
       return;
     }
 
-    if (invalidCells.length > 0) {
+    if (invalidCells.length > 0 && autoCorrectionCandidates === 0) {
       setError("Please fix invalid cells before solving.");
       return;
     }
@@ -155,11 +170,17 @@ export default function App() {
     try {
       setIsProcessing(true);
       setError(null);
-      setStatusMessage("Solving puzzle and validating the board...");
+      setStatusMessage(
+        autoCorrectionCandidates > 0
+          ? "Solving puzzle and checking uncertain OCR digits..."
+          : "Solving puzzle and validating the board..."
+      );
       // Backend expects 0s for empty spaces
       const requestGrid = grid.map(row => row.map(cell => cell === null ? 0 : cell));
       
-      const solution = await solveGrid(requestGrid, uncertainties);
+      const result = await solveGrid(requestGrid, uncertainties);
+      const solution = result.solved;
+      const corrections = result.corrections || [];
       
       // Determine which cells were filled by the AI
       const newlySolved = [];
@@ -174,7 +195,13 @@ export default function App() {
       // Format back to null (though solution shouldn't have any) and set
       setGrid(solution.map(row => row.map(c => c === 0 ? null : c)));
       setSolvedCells(newlySolved);
-      setStatusMessage(`Solved successfully. ${newlySolved.length} cells were filled automatically.`);
+      setInvalidCells([]);
+      setUncertainties({});
+      setStatusMessage(
+        corrections.length > 0
+          ? `Solved successfully. Corrected ${corrections.length} uncertain OCR cell${corrections.length === 1 ? "" : "s"} and filled ${newlySolved.length} open cell${newlySolved.length === 1 ? "" : "s"}.`
+          : `Solved successfully. ${newlySolved.length} cells were filled automatically.`
+      );
     } catch(err) {
       setError(err.message || "Failed to solve puzzle.");
     } finally {

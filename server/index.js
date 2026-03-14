@@ -58,7 +58,11 @@ app.post('/solve', (req, res) => {
       return;
     }
 
-    res.json({ solved: result.solved, correction: result.correction });
+    res.json({
+      solved: result.solved,
+      correction: result.correction,
+      corrections: result.corrections || [],
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Processing error' });

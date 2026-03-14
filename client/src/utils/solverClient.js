@@ -19,7 +19,7 @@ export const solveGrid = async (grid, uncertainties = {}) => {
     }
 
     const data = await response.json();
-    return data.solved; // 2D array
+    return data; // { solved, correction?, corrections? }
   } catch (err) {
     console.error("solverClient solveGrid error:", err);
     throw err;

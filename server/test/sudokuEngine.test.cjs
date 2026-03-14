@@ -80,6 +80,35 @@ test("solvePuzzleWithUncertainties can repair a conflicted OCR guess", () => {
   assert.deepEqual(result.correction, { row: 0, col: 2, from: 5, to: 4 });
 });
 
+test("solvePuzzleWithUncertainties can repair a valid but unsolvable OCR guess", () => {
+  const conflicted = samplePuzzle.map((row) => [...row]);
+  conflicted[0][2] = 1;
+
+  const result = solvePuzzleWithUncertainties(conflicted, { 2: [4, 7] });
+
+  assert.ok(result);
+  assert.deepEqual(result.solved, sampleSolution);
+  assert.deepEqual(result.correction, { row: 0, col: 2, from: 1, to: 4 });
+});
+
+test("solvePuzzleWithUncertainties can repair multiple OCR guesses", () => {
+  const conflicted = samplePuzzle.map((row) => [...row]);
+  conflicted[0][2] = 7;
+  conflicted[1][1] = 1;
+
+  const result = solvePuzzleWithUncertainties(conflicted, {
+    2: [4, 1],
+    10: [7, 2],
+  });
+
+  assert.ok(result);
+  assert.deepEqual(result.solved, sampleSolution);
+  assert.deepEqual(result.corrections, [
+    { row: 0, col: 2, from: 7, to: 4 },
+    { row: 1, col: 1, from: 1, to: 7 },
+  ]);
+});
+
 test("estimateDifficulty returns expert for very sparse boards", () => {
   const sparseBoard = BASE_BOARD.map((row, rowIndex) =>
     row.map((value, colIndex) => (rowIndex < 2 && colIndex < 2 ? value : 0)),
