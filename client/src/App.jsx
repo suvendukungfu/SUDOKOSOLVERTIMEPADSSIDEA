@@ -118,79 +118,105 @@ export default function App() {
     }
   }, []);
 
+  const scoreRecoveryCandidate = useCallback((candidate) => {
+    if (!candidate) return Number.POSITIVE_INFINITY;
+
+    return (
+      candidate.conflicts.length * 1000 +
+      Object.keys(candidate.uncertainties).length * 10 -
+      candidate.corrections.length
+    );
+  }, []);
+
   // Process OCR extracted grid
-  const handleGridExtracted = async (extractedGrid, uncertaintiesMap, statusObj) => {
+  const handleGridExtracted = useCallback(async (extractedGrid, uncertaintiesMap, statusObj) => {
     if (statusObj?.ocrStatus) setModelStatus(statusObj.ocrStatus);
     
     // Transform formatting (0 -> null for UI)
     const formattedGrid = extractedGrid.map(row => row.map(cell => cell === 0 ? null : cell));
+    const originalConflicts = findGridConflicts(formattedGrid);
+    const originalUncertainties = buildRecoveryUncertainties(formattedGrid, uncertaintiesMap, originalConflicts);
     let nextGrid = formattedGrid;
-    let nextConflicts = findGridConflicts(formattedGrid);
-    let nextUncertainties = buildRecoveryUncertainties(formattedGrid, uncertaintiesMap, nextConflicts);
+    let nextConflicts = originalConflicts;
+    let nextUncertainties = originalUncertainties;
     let autoCorrections = [];
     let autoRecovered = false;
 
     setDebugImages(statusObj.debugImages || new Array(81).fill(null));
 
-    if (statusObj?.ocrStatus !== "demo" && (nextConflicts.length > 0 || Object.keys(nextUncertainties).length > 0)) {
+    if (statusObj?.ocrStatus !== "demo" && (originalConflicts.length > 0 || Object.keys(originalUncertainties).length > 0)) {
       try {
         setIsProcessing(true);
         setStatusMessage("Reconciling OCR digits with Sudoku rules...");
 
         const requestGrid = formattedGrid.map((row) => row.map((cell) => (cell === null ? 0 : cell)));
-        const result = await solveGrid(requestGrid, nextUncertainties);
+        const result = await solveGrid(requestGrid, originalUncertainties);
+        let conservativeCandidate = null;
 
         if (result?.solved) {
           const correctedGrid = applySolvedCorrectionsToGivens(formattedGrid, result.solved);
           const correctedConflicts = findGridConflicts(correctedGrid);
           const correctedCount = (result.corrections || []).length;
+          const correctedUncertainties = removeResolvedUncertainties(originalUncertainties, result.corrections || []);
 
-          if (
-            correctedCount > 0 ||
-            correctedConflicts.length < nextConflicts.length
-          ) {
-            nextGrid = correctedGrid;
-            nextConflicts = correctedConflicts;
-            autoCorrections = result.corrections || [];
-            nextUncertainties = removeResolvedUncertainties(nextUncertainties, autoCorrections);
-            autoRecovered = correctedCount > 0 || correctedConflicts.length === 0;
+          conservativeCandidate = {
+            grid: correctedGrid,
+            conflicts: correctedConflicts,
+            corrections: result.corrections || [],
+            uncertainties: correctedUncertainties,
+            recovered: correctedCount > 0 || correctedConflicts.length === 0,
+          };
+        }
+
+        let aggressiveCandidate = null;
+        const aggressivePlan = buildAggressiveRecoveryPlan(formattedGrid, originalUncertainties, originalConflicts);
+
+        if (aggressivePlan.clearedIndexes.length > 0) {
+          setStatusMessage("Trying a stronger OCR recovery pass for uncertain digits...");
+
+          const aggressiveRequestGrid = aggressivePlan.clearedGrid.map((row) =>
+            row.map((cell) => (cell === null ? 0 : cell)),
+          );
+          const aggressiveResult = await solveGrid(aggressiveRequestGrid, {});
+
+          if (aggressiveResult?.solved) {
+            const aggressiveGrid = applySolvedValuesAtIndexes(
+              formattedGrid,
+              aggressiveResult.solved,
+              aggressivePlan.clearedIndexes,
+            );
+            const aggressiveConflicts = findGridConflicts(aggressiveGrid);
+            const aggressiveCorrections = buildCorrectionsFromIndexes(
+              formattedGrid,
+              aggressiveResult.solved,
+              aggressivePlan.clearedIndexes,
+            );
+            const aggressiveUncertainties = removeResolvedUncertainties(
+              originalUncertainties,
+              aggressiveCorrections,
+            );
+
+            aggressiveCandidate = {
+              grid: aggressiveGrid,
+              conflicts: aggressiveConflicts,
+              corrections: aggressiveCorrections,
+              uncertainties: aggressiveUncertainties,
+              recovered: aggressiveCorrections.length > 0 || aggressiveConflicts.length === 0,
+            };
           }
         }
 
-        if (nextConflicts.length > 0) {
-          const aggressivePlan = buildAggressiveRecoveryPlan(nextGrid, nextUncertainties, nextConflicts);
+        const bestCandidate =
+          scoreRecoveryCandidate(aggressiveCandidate) < scoreRecoveryCandidate(conservativeCandidate)
+            ? aggressiveCandidate
+            : conservativeCandidate;
 
-          if (aggressivePlan.clearedIndexes.length > 0) {
-            setStatusMessage("Trying a stronger OCR recovery pass for uncertain digits...");
-
-            const aggressiveRequestGrid = aggressivePlan.clearedGrid.map((row) =>
-              row.map((cell) => (cell === null ? 0 : cell)),
-            );
-            const aggressiveResult = await solveGrid(aggressiveRequestGrid, {});
-
-            if (aggressiveResult?.solved) {
-              const aggressiveGrid = applySolvedValuesAtIndexes(
-                nextGrid,
-                aggressiveResult.solved,
-                aggressivePlan.clearedIndexes,
-              );
-              const aggressiveConflicts = findGridConflicts(aggressiveGrid);
-
-              if (aggressiveConflicts.length < nextConflicts.length) {
-                const aggressiveCorrections = buildCorrectionsFromIndexes(
-                  nextGrid,
-                  aggressiveResult.solved,
-                  aggressivePlan.clearedIndexes,
-                );
-
-                nextGrid = aggressiveGrid;
-                nextConflicts = aggressiveConflicts;
-                autoCorrections = aggressiveCorrections;
-                nextUncertainties = removeResolvedUncertainties(nextUncertainties, aggressiveCorrections);
-                autoRecovered = aggressiveCorrections.length > 0 || aggressiveConflicts.length === 0;
-              }
-            }
-          }
+        if (bestCandidate) {
+          nextGrid = bestCandidate.grid;
+          nextConflicts = bestCandidate.conflicts;
+          autoCorrections = bestCandidate.corrections;
+          nextUncertainties = bestCandidate.uncertainties;
+          autoRecovered = bestCandidate.recovered;
         }
       } catch (err) {
         console.warn("OCR reconciliation could not auto-correct the extracted board.", err);
@@ -237,7 +263,7 @@ export default function App() {
     }
 
     setSelectedCell(null);
-  };
+  }, [scoreRecoveryCandidate]);
 
   // Trigger Backend Solver
   const handleSolve = async () => {

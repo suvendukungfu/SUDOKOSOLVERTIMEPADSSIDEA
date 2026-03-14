@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { createRequire } from "node:module";
 
 import {
   applySolvedValuesAtIndexes,
@@ -12,6 +13,8 @@ import {
   removeResolvedUncertainties,
 } from "./ocrRecovery.js";
 
+const require = createRequire(import.meta.url);
+const { solvePuzzle } = require("../../../server/solver/sudokuEngine");
 const emptyGrid = Array.from({ length: 9 }, () => Array(9).fill(null));
 
 test("getOneSevenAlternate only swaps 1 and 7", () => {
@@ -107,6 +110,45 @@ test("buildCorrectionsFromIndexes reports only changed cells", () => {
   assert.deepEqual(buildCorrectionsFromIndexes(grid, solved, [2, 11]), [
     { row: 0, col: 2, from: 7, to: 5 },
   ]);
+});
+
+test("aggressive recovery can resolve a board dominated by bad 1/7 OCR givens", () => {
+  const grid = [
+    [8, null, 7, null, null, null, null, null, null],
+    [null, 3, 1, null, null, 2, 4, null, null],
+    [null, 4, null, null, null, null, null, 5, 2],
+    [9, 6, null, 4, 1, null, 8, 7, null],
+    [7, null, null, 7, null, 3, 9, 2, null],
+    [null, null, 4, 9, null, 8, 7, null, null],
+    [4, null, 6, 7, null, 7, 2, 3, null],
+    [7, 5, 3, null, null, null, null, 9, 7],
+    [null, 7, null, null, null, 6, 5, null, null],
+  ];
+
+  const { clearedGrid, clearedIndexes } = buildAggressiveRecoveryPlan(grid, {}, [
+    [3, 7],
+    [4, 0],
+    [4, 3],
+    [5, 6],
+    [6, 3],
+    [6, 5],
+    [7, 0],
+    [7, 8],
+    [8, 1],
+  ]);
+
+  const solved = solvePuzzle(clearedGrid.map((row) => row.map((cell) => cell ?? 0)));
+  assert.ok(solved);
+
+  const recovered = applySolvedValuesAtIndexes(grid, solved, clearedIndexes);
+  const corrections = buildCorrectionsFromIndexes(grid, solved, clearedIndexes);
+
+  assert.equal(recovered[0][2], 5);
+  assert.equal(recovered[3][4], 7);
+  assert.equal(recovered[3][7], 1);
+  assert.equal(recovered[4][3], 1);
+  assert.equal(recovered[7][0], 2);
+  assert.ok(corrections.length >= 8);
 });
 
 test("removeResolvedUncertainties drops corrected entries", () => {
