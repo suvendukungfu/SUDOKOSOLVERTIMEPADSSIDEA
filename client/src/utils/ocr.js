@@ -1,6 +1,4 @@
-import * as tf from "@tensorflow/tfjs";
-
-import { loadAIModel } from "./modelLoader";
+import { getTensorFlow, loadAIModel } from "./modelLoader";
 import { DEMO_BOARD } from "./fallbackDemoBoard";
 
 /**
@@ -126,6 +124,7 @@ export const extractDigitFromCell = (cellMat) => {
  */
 export const recognizeDigits = async (cellMats) => {
   const startTime = performance.now();
+  const tf = await getTensorFlow();
   const { model, status } = await loadAIModel();
   
   if (status === "demo") {

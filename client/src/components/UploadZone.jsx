@@ -1,12 +1,27 @@
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { extractGrid } from '../utils/opencv';
-import { recognizeDigits } from '../utils/ocr';
+
+let visionModulesPromise = null;
+
+const loadVisionModules = () => {
+  if (!visionModulesPromise) {
+    visionModulesPromise = Promise.all([
+      import('../utils/opencv'),
+      import('../utils/ocr'),
+    ]).then(([opencv, ocr]) => ({
+      extractGrid: opencv.extractGrid,
+      recognizeDigits: ocr.recognizeDigits,
+    }));
+  }
+
+  return visionModulesPromise;
+};
 
 export default function UploadZone({ onGridReady, isProcessing, onProcessingChange }) {
   const [dragActive, setDragActive] = useState(false);
   const [cameraActive, setCameraActive] = useState(false);
   const [error, setError] = useState(null);
+  const [processingStage, setProcessingStage] = useState("");
   
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -15,19 +30,31 @@ export default function UploadZone({ onGridReady, isProcessing, onProcessingChan
 
   useEffect(() => () => stopCamera(), []);
 
+  const primeVisionPipeline = () => {
+    loadVisionModules().catch(() => {});
+  };
+
   const processImage = async (imageSrc) => {
     try {
       setError(null);
-      onProcessingChange?.(true, "Detecting board, extracting cells, and running OCR...");
+      setProcessingStage("Loading OCR modules…");
+      onProcessingChange?.(true, "Loading OCR modules and preparing the vision pipeline...");
+      const { extractGrid, recognizeDigits } = await loadVisionModules();
 
       // Wait for image to load to grab dimensions for OpenCV
       const img = new Image();
       img.src = imageSrc;
       await new Promise(r => { img.onload = r; });
 
+      setProcessingStage("Detecting Sudoku grid…");
+      onProcessingChange?.(true, "Detecting the Sudoku grid and correcting perspective...");
+
       // Run OpenCV Grid Extraction Pipeline
       const cellMats = await extractGrid(img);
       
+      setProcessingStage("Recognizing digits…");
+      onProcessingChange?.(true, "Recognizing digits from 81 cells...");
+
       // Run TF.js OCR
       const { grid, uncertainties, debugImages, status: ocrStatus } = await recognizeDigits(cellMats);
       
@@ -43,6 +70,7 @@ export default function UploadZone({ onGridReady, isProcessing, onProcessingChan
       console.error(err);
       setError(`Failed to read Sudoku from image: ${err.message || err.toString()}`);
     } finally {
+      setProcessingStage("");
       onProcessingChange?.(false);
     }
   };
@@ -157,6 +185,8 @@ export default function UploadZone({ onGridReady, isProcessing, onProcessingChan
             className={`relative rounded-[24px] border-2 border-dashed p-6 text-center transition-all duration-300 backdrop-blur-md bg-[#1a1c23]/80 sm:p-8 ${
               dragActive ? 'border-[#4fd1c5] bg-[#4fd1c5]/10 shadow-[0_0_20px_rgba(79,209,197,0.2)]' : 'border-gray-600 hover:border-gray-500'
             }`}
+            onMouseEnter={primeVisionPipeline}
+            onFocusCapture={primeVisionPipeline}
             onDragEnter={handleDrag}
             onDragLeave={handleDrag}
             onDragOver={handleDrag}
@@ -165,7 +195,10 @@ export default function UploadZone({ onGridReady, isProcessing, onProcessingChan
              {isProcessing ? (
                 <div className="flex flex-col items-center justify-center space-y-4">
                   <div className="w-12 h-12 border-4 border-t-[#4fd1c5] border-r-[#9f7aea] border-b-transparent border-l-transparent rounded-full animate-spin"></div>
-                  <p className="text-gray-300 font-medium animate-pulse">Running AI Vision Pipeline...</p>
+                  <div className="space-y-2">
+                    <p className="text-gray-200 font-medium animate-pulse">Running AI Vision Pipeline...</p>
+                    <p className="text-sm text-slate-400">{processingStage || "Preparing image analysis…"}</p>
+                  </div>
                 </div>
              ) : (
                 <>
@@ -184,6 +217,7 @@ export default function UploadZone({ onGridReady, isProcessing, onProcessingChan
                     <button 
                       onClick={() => fileInputRef.current?.click()}
                       disabled={isProcessing}
+                      onMouseEnter={primeVisionPipeline}
                       className="px-5 py-2.5 bg-[#2d3748] hover:bg-[#4a5568] disabled:opacity-50 disabled:cursor-not-allowed transition rounded-xl text-sm font-medium"
                     >
                       Browse Files
@@ -191,6 +225,7 @@ export default function UploadZone({ onGridReady, isProcessing, onProcessingChan
                     <button 
                       onClick={startCamera}
                       disabled={isProcessing}
+                      onMouseEnter={primeVisionPipeline}
                       className="px-5 py-2.5 bg-linear-to-r from-[#4fd1c5] to-[#9f7aea] text-black hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition rounded-xl text-sm font-bold shadow-[0_0_10px_rgba(159,122,234,0.4)]"
                     >
                       Open Camera

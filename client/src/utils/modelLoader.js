@@ -1,13 +1,20 @@
-import * as tf from "@tensorflow/tfjs";
-
 let cachedModel = null;
 let cachedStatus = null; // 'local' | 'remote' | 'demo'
+let tfModulePromise = null;
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:5001";
 const PRODUCTION_MODEL_URL =
   import.meta.env.VITE_MODEL_URL || `${API_BASE_URL}/models/sudoku-cnn/model.json`;
 const MOCK_MODEL_URL =
   import.meta.env.VITE_MOCK_MODEL_URL || `${API_BASE_URL}/models/mock-cnn/model.json`;
+
+export const getTensorFlow = async () => {
+  if (!tfModulePromise) {
+    tfModulePromise = import("@tensorflow/tfjs");
+  }
+
+  return tfModulePromise;
+};
 
 export const loadAIModel = async () => {
   if (cachedModel && cachedStatus) {
@@ -20,6 +27,7 @@ export const loadAIModel = async () => {
 
   try {
     // 5️⃣ TensorFlow Backend Setup
+    const tf = await getTensorFlow();
     await tf.setBackend("webgl");
     await tf.ready();
     console.log("TensorFlow.js WebGL backend initialized.");
@@ -29,6 +37,7 @@ export const loadAIModel = async () => {
 
   // 1. Try Local Model
   try {
+    const tf = await getTensorFlow();
     cachedModel = await tf.loadLayersModel(PRODUCTION_MODEL_URL);
     cachedStatus = "local";
     console.log(`AI model loaded successfully from ${PRODUCTION_MODEL_URL}.`);
@@ -39,6 +48,7 @@ export const loadAIModel = async () => {
 
   // 2. Try Mock Model (if training bypassed)
   try {
+    const tf = await getTensorFlow();
     cachedModel = await tf.loadLayersModel(MOCK_MODEL_URL);
     cachedStatus = "demo";
     console.log(`Mock AI model loaded successfully from ${MOCK_MODEL_URL}.`);

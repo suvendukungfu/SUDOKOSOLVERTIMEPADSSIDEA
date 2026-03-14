@@ -32,21 +32,33 @@ export default function App() {
 
   useEffect(() => {
     let mounted = true;
+    let cleanup = () => {};
 
-    loadAIModel()
-      .then(({ status }) => {
-        if (mounted) {
-          setModelStatus(status);
-        }
-      })
-      .catch(() => {
-        if (mounted) {
-          setModelStatus("demo");
-        }
-      });
+    const warmModel = () => {
+      loadAIModel()
+        .then(({ status }) => {
+          if (mounted) {
+            setModelStatus(status);
+          }
+        })
+        .catch(() => {
+          if (mounted) {
+            setModelStatus("demo");
+          }
+        });
+    };
+
+    if ("requestIdleCallback" in window) {
+      const idleId = window.requestIdleCallback(warmModel, { timeout: 1200 });
+      cleanup = () => window.cancelIdleCallback(idleId);
+    } else {
+      const timer = window.setTimeout(warmModel, 200);
+      cleanup = () => window.clearTimeout(timer);
+    }
 
     return () => {
       mounted = false;
+      cleanup();
     };
   }, []);
 
