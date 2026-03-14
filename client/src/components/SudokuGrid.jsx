@@ -5,6 +5,7 @@ export default function SudokuGrid({
   selectedCell,
   onSelectCell,
   invalidCells = [],
+  reviewCells = [],
   lockedCells = [],
   solvedCells = [],
   debugImages = [],
@@ -13,6 +14,7 @@ export default function SudokuGrid({
   const isLocked = (r, c) => lockedCells.some(([lr, lc]) => lr === r && lc === c);
   const isSolved = (r, c) => solvedCells.some(([sr, sc]) => sr === r && sc === c);
   const isInvalid = (r, c) => invalidCells.some(([ir, ic]) => ir === r && ic === c);
+  const isReview = (r, c) => reviewCells.some(([rr, rc]) => rr === r && rc === c);
   const MotionButton = m.button;
   const MotionSpan = m.span;
 
@@ -25,6 +27,7 @@ export default function SudokuGrid({
             const locked = isLocked(r, c);
             const solved = isSolved(r, c);
             const invalid = isInvalid(r, c);
+            const review = isReview(r, c);
             const sameRow = selectedCell?.[0] === r;
             const sameCol = selectedCell?.[1] === c;
             const sameBox = selectedCell
@@ -53,6 +56,7 @@ export default function SudokuGrid({
                   ${locked ? 'text-[#67e8f9] font-bold' : ''}
                   ${solved ? 'text-[#c4b5fd] font-bold shadow-[inset_0_0_18px_rgba(159,122,234,0.18)]' : ''}
                   ${invalid ? 'bg-red-500/18 text-red-300 shadow-[inset_0_0_10px_rgba(239,68,68,0.35)]' : ''}
+                  ${review && !invalid ? 'bg-amber-500/12 text-amber-200 shadow-[inset_0_0_10px_rgba(245,158,11,0.18)] ring-1 ring-inset ring-amber-400/35' : ''}
                   ${!locked && !solved && !invalid ? 'text-slate-100 hover:bg-white/8' : ''}
                   ${selected ? 'ring-2 ring-inset ring-[#4fd1c5] bg-[#4fd1c5]/18 shadow-[0_0_0_1px_rgba(79,209,197,0.25)]' : ''}
                 `}

@@ -28,6 +28,7 @@ export default function App() {
   const [grid, setGrid] = useState(emptyGrid);
   const [selectedCell, setSelectedCell] = useState(null);
   const [invalidCells, setInvalidCells] = useState([]);
+  const [reviewCells, setReviewCells] = useState([]);
   const [lockedCells, setLockedCells] = useState([]);
   const [solvedCells, setSolvedCells] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -104,6 +105,7 @@ export default function App() {
       delete next[cellIndex];
       return next;
     });
+    setReviewCells((prev) => prev.filter(([rr, rc]) => rr !== row || rc !== col));
 
     setGrid(newGrid);
   }, [grid, isLocked, selectedCell]);
@@ -228,14 +230,22 @@ export default function App() {
     }
 
     const uncertaintyCount = Object.keys(nextUncertainties).length;
+    const reviewIndexes = Object.keys(nextUncertainties)
+      .map((index) => Number.parseInt(index, 10))
+      .filter((index) => !Number.isNaN(index))
+      .filter((index) => nextGrid[Math.floor(index / 9)]?.[index % 9] !== null);
+    const nextReviewCells = reviewIndexes.map((index) => [Math.floor(index / 9), index % 9]);
     setGrid(nextGrid);
     setUncertainties(nextUncertainties);
+    setReviewCells(nextReviewCells);
     
     // Auto-lock non-null cells as givens
+    const reviewIndexSet = new Set(reviewIndexes);
     const locked = [];
     nextGrid.forEach((row, r) =>
       row.forEach((cell, c) => {
-        if (cell !== null) locked.push([r, c]);
+        const index = r * 9 + c;
+        if (cell !== null && !reviewIndexSet.has(index)) locked.push([r, c]);
       })
     );
     setLockedCells(locked);
@@ -248,16 +258,16 @@ export default function App() {
       setStatusMessage(
         autoCorrections.length > 0
           ? `OCR auto-corrected ${autoCorrections.length} cell${autoCorrections.length === 1 ? "" : "s"}, but ${nextConflicts.length} conflict${nextConflicts.length === 1 ? "" : "s"} still need review.`
-          : `OCR finished with ${nextConflicts.length} conflict${nextConflicts.length === 1 ? "" : "s"} and ${uncertaintyCount} uncertain cell${uncertaintyCount === 1 ? "" : "s"}.`
+          : `OCR finished with ${nextConflicts.length} conflict${nextConflicts.length === 1 ? "" : "s"} and ${uncertaintyCount} uncertain cell${uncertaintyCount === 1 ? "" : "s"} left editable for review.`
       );
     } else {
       const givens = nextGrid.flat().filter((cell) => cell !== null).length;
       setError(null);
       setStatusMessage(
         autoRecovered && autoCorrections.length > 0
-          ? `Sudoku grid extracted and auto-corrected ${autoCorrections.length} OCR cell${autoCorrections.length === 1 ? "" : "s"}. ${givens} givens are ready.`
+          ? `Sudoku grid extracted and auto-corrected ${autoCorrections.length} OCR cell${autoCorrections.length === 1 ? "" : "s"}. ${givens} givens are ready.${nextReviewCells.length > 0 ? ` Review ${nextReviewCells.length} highlighted OCR cell${nextReviewCells.length === 1 ? "" : "s"} before solving.` : ""}`
           : uncertaintyCount > 0
-            ? `Sudoku grid extracted with ${givens} filled cells. ${uncertaintyCount} OCR cell${uncertaintyCount === 1 ? "" : "s"} flagged as uncertain.`
+            ? `Sudoku grid extracted with ${givens} filled cells. ${uncertaintyCount} OCR cell${uncertaintyCount === 1 ? "" : "s"} are highlighted for review and remain editable.`
           : `Sudoku grid extracted successfully with ${givens} filled cells.`
       );
     }
@@ -309,6 +319,7 @@ export default function App() {
       setSolvedCells(newlySolved);
       setInvalidCells([]);
       setUncertainties({});
+      setReviewCells([]);
       setStatusMessage(
         corrections.length > 0
           ? `Solved successfully. Corrected ${corrections.length} uncertain OCR cell${corrections.length === 1 ? "" : "s"} and filled ${newlySolved.length} open cell${newlySolved.length === 1 ? "" : "s"}.`
@@ -360,6 +371,7 @@ export default function App() {
     setInvalidCells([]);
     setLockedCells([]);
     setSolvedCells([]);
+    setReviewCells([]);
     setDebugImages(new Array(81).fill(null));
     setUncertainties({});
     setError(null);
@@ -501,6 +513,7 @@ export default function App() {
               selectedCell={selectedCell}
               onSelectCell={setSelectedCell}
               invalidCells={invalidCells}
+              reviewCells={reviewCells}
               lockedCells={lockedCells}
               solvedCells={solvedCells}
               debugImages={debugImages}
