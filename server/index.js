@@ -1,5 +1,7 @@
 const express = require('express');
 const cors = require('cors');
+const fs = require('fs');
+const path = require('path');
 const {
   estimateDifficulty,
   generatePuzzle,
@@ -12,6 +14,31 @@ const {
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+const modelsDir = path.resolve(__dirname, '..', 'ai-training', 'models');
+
+app.use('/models', express.static(modelsDir, {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.bin')) {
+      res.setHeader('Content-Type', 'application/octet-stream');
+    }
+    if (filePath.endsWith('.json')) {
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    }
+    res.setHeader('Cache-Control', 'public, max-age=300');
+  },
+}));
+
+app.get('/health/model', (_req, res) => {
+  const modelPath = path.join(modelsDir, 'sudoku-cnn', 'model.json');
+  const mockModelPath = path.join(modelsDir, 'mock-cnn', 'model.json');
+
+  res.json({
+    ready: fs.existsSync(modelPath),
+    modelPath,
+    mockReady: fs.existsSync(mockModelPath),
+  });
+});
 
 // --- Endpoints ---
 
@@ -86,4 +113,12 @@ app.post('/difficulty', (req, res) => {
 });
 
 const PORT = 5001;
-app.listen(PORT, () => console.log(`Server optimized listening on http://localhost:${PORT}`));
+
+const startServer = (port = PORT) =>
+  app.listen(port, () => console.log(`Server optimized listening on http://localhost:${port}`));
+
+if (require.main === module) {
+  startServer();
+}
+
+module.exports = { app, startServer };

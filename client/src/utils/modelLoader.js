@@ -3,6 +3,12 @@ import * as tf from "@tensorflow/tfjs";
 let cachedModel = null;
 let cachedStatus = null; // 'local' | 'remote' | 'demo'
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:5001";
+const PRODUCTION_MODEL_URL =
+  import.meta.env.VITE_MODEL_URL || `${API_BASE_URL}/models/sudoku-cnn/model.json`;
+const MOCK_MODEL_URL =
+  import.meta.env.VITE_MOCK_MODEL_URL || `${API_BASE_URL}/models/mock-cnn/model.json`;
+
 export const loadAIModel = async () => {
   if (cachedModel && cachedStatus) {
     return { model: cachedModel, status: cachedStatus };
@@ -23,19 +29,19 @@ export const loadAIModel = async () => {
 
   // 1. Try Local Model
   try {
-    cachedModel = await tf.loadLayersModel("http://127.0.0.1:5178/model.json");
+    cachedModel = await tf.loadLayersModel(PRODUCTION_MODEL_URL);
     cachedStatus = "local";
-    console.log("Local AI model loaded successfully.");
+    console.log(`AI model loaded successfully from ${PRODUCTION_MODEL_URL}.`);
     return { model: cachedModel, status: cachedStatus };
   } catch (err) {
-    console.warn("Local model failed to load, trying remote model...", err.message);
+    console.warn("Production model failed to load, trying mock model...", err.message);
   }
 
   // 2. Try Mock Model (if training bypassed)
   try {
-    cachedModel = await tf.loadLayersModel("/models/mock-cnn/model.json");
+    cachedModel = await tf.loadLayersModel(MOCK_MODEL_URL);
     cachedStatus = "demo";
-    console.log("Mock AI model loaded successfully.");
+    console.log(`Mock AI model loaded successfully from ${MOCK_MODEL_URL}.`);
     return { model: cachedModel, status: cachedStatus };
   } catch (err) {
     console.warn("Mock model failed to load. Activating fallback demo mode.", err.message);
