@@ -24,6 +24,15 @@ pnpm-debug.log*
 client/.npm_cache/
 model-trainer/.cache/
 model-trainer/.npm_cache/
+ai-training/self_learning_artifacts/
+ai-training/self_learning_dataset/
+ai-training/self_learning_models/
+ai-training/tests/__pycache__/
+ai-training/self_learning_sudoku/__pycache__/
+ai-training/.venv/
+ai-training/.venv-export/
+client/.venv/
+client/.venv-export/
 
 # Environment files
 .env

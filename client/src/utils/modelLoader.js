@@ -23,7 +23,7 @@ export const loadAIModel = async () => {
 
   // 1. Try Local Model
   try {
-    cachedModel = await tf.loadLayersModel("/models/sudoku-cnn/model.json");
+    cachedModel = await tf.loadLayersModel("http://127.0.0.1:5178/model.json");
     cachedStatus = "local";
     console.log("Local AI model loaded successfully.");
     return { model: cachedModel, status: cachedStatus };

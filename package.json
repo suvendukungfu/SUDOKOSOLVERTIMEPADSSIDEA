@@ -1,0 +1,20 @@
+{
+  "name": "sudokosolvertimepadssidea",
+  "version": "1.0.0",
+  "description": "**Image-to-Solution using OCR, OpenCV & Backtracking**",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/suvendukungfu/SUDOKOSOLVERTIMEPADSSIDEA.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/suvendukungfu/SUDOKOSOLVERTIMEPADSSIDEA/issues"
+  },
+  "homepage": "https://github.com/suvendukungfu/SUDOKOSOLVERTIMEPADSSIDEA#readme"
+}
