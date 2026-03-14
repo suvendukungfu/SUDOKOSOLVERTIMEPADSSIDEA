@@ -2,6 +2,7 @@ const BOARD_SIZE = 9;
 const AUTO_ONE_SEVEN_LIMIT = 10;
 
 const toIndex = (row, col) => row * BOARD_SIZE + col;
+const fromIndex = (index) => [Math.floor(index / BOARD_SIZE), index % BOARD_SIZE];
 
 const normalizeCandidates = (value) => {
   const raw = Array.isArray(value) ? value : [value];
@@ -83,6 +84,61 @@ export const applySolvedCorrectionsToGivens = (grid, solvedGrid) =>
   grid.map((row, rowIndex) =>
     row.map((cell, colIndex) => (cell == null || cell === 0 ? null : solvedGrid[rowIndex][colIndex])),
   );
+
+export const buildAggressiveRecoveryPlan = (grid, baseUncertainties = {}, conflicts = []) => {
+  const indexes = new Set(Object.keys(normalizeUncertaintyMap(baseUncertainties)).map(Number));
+
+  conflicts.forEach(([row, col]) => {
+    indexes.add(toIndex(row, col));
+  });
+
+  grid.forEach((row, rowIndex) => {
+    row.forEach((cell, colIndex) => {
+      if (cell === 1 || cell === 7) {
+        indexes.add(toIndex(rowIndex, colIndex));
+      }
+    });
+  });
+
+  const clearedIndexes = [...indexes].sort((a, b) => a - b);
+  const clearedGrid = grid.map((row) => [...row]);
+
+  clearedIndexes.forEach((index) => {
+    const [row, col] = fromIndex(index);
+    clearedGrid[row][col] = null;
+  });
+
+  return {
+    clearedGrid,
+    clearedIndexes,
+  };
+};
+
+export const applySolvedValuesAtIndexes = (grid, solvedGrid, indexes = []) => {
+  const nextGrid = grid.map((row) => [...row]);
+
+  indexes.forEach((index) => {
+    const [row, col] = fromIndex(index);
+    nextGrid[row][col] = solvedGrid[row][col];
+  });
+
+  return nextGrid;
+};
+
+export const buildCorrectionsFromIndexes = (grid, solvedGrid, indexes = []) =>
+  indexes
+    .map((index) => {
+      const [row, col] = fromIndex(index);
+      const from = grid[row][col];
+      const to = solvedGrid[row][col];
+
+      if (from == null || from === to) {
+        return null;
+      }
+
+      return { row, col, from, to };
+    })
+    .filter(Boolean);
 
 export const removeResolvedUncertainties = (uncertainties = {}, corrections = []) => {
   if (!corrections.length) {

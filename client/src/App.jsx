@@ -14,7 +14,10 @@ import { findGridConflicts } from "./utils/validation";
 import { solveGrid } from "./utils/solverClient";
 import { loadAIModel } from "./utils/modelLoader";
 import {
+  applySolvedValuesAtIndexes,
   applySolvedCorrectionsToGivens,
+  buildAggressiveRecoveryPlan,
+  buildCorrectionsFromIndexes,
   buildRecoveryUncertainties,
   removeResolvedUncertainties,
 } from "./utils/ocrRecovery";
@@ -151,6 +154,42 @@ export default function App() {
             autoCorrections = result.corrections || [];
             nextUncertainties = removeResolvedUncertainties(nextUncertainties, autoCorrections);
             autoRecovered = correctedCount > 0 || correctedConflicts.length === 0;
+          }
+        }
+
+        if (nextConflicts.length > 0) {
+          const aggressivePlan = buildAggressiveRecoveryPlan(nextGrid, nextUncertainties, nextConflicts);
+
+          if (aggressivePlan.clearedIndexes.length > 0) {
+            setStatusMessage("Trying a stronger OCR recovery pass for uncertain digits...");
+
+            const aggressiveRequestGrid = aggressivePlan.clearedGrid.map((row) =>
+              row.map((cell) => (cell === null ? 0 : cell)),
+            );
+            const aggressiveResult = await solveGrid(aggressiveRequestGrid, {});
+
+            if (aggressiveResult?.solved) {
+              const aggressiveGrid = applySolvedValuesAtIndexes(
+                nextGrid,
+                aggressiveResult.solved,
+                aggressivePlan.clearedIndexes,
+              );
+              const aggressiveConflicts = findGridConflicts(aggressiveGrid);
+
+              if (aggressiveConflicts.length < nextConflicts.length) {
+                const aggressiveCorrections = buildCorrectionsFromIndexes(
+                  nextGrid,
+                  aggressiveResult.solved,
+                  aggressivePlan.clearedIndexes,
+                );
+
+                nextGrid = aggressiveGrid;
+                nextConflicts = aggressiveConflicts;
+                autoCorrections = aggressiveCorrections;
+                nextUncertainties = removeResolvedUncertainties(nextUncertainties, aggressiveCorrections);
+                autoRecovered = aggressiveCorrections.length > 0 || aggressiveConflicts.length === 0;
+              }
+            }
           }
         }
       } catch (err) {
