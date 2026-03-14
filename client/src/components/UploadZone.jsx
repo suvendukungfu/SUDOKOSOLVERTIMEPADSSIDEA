@@ -1,9 +1,9 @@
-import { useState, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { extractGrid } from '../utils/opencv';
 import { recognizeDigits } from '../utils/ocr';
 
-export default function UploadZone({ onGridReady, isProcessing }) {
+export default function UploadZone({ onGridReady, isProcessing, onProcessingChange }) {
   const [dragActive, setDragActive] = useState(false);
   const [cameraActive, setCameraActive] = useState(false);
   const [error, setError] = useState(null);
@@ -13,9 +13,13 @@ export default function UploadZone({ onGridReady, isProcessing }) {
   const fileInputRef = useRef(null);
   const MotionDiv = motion.div;
 
+  useEffect(() => () => stopCamera(), []);
+
   const processImage = async (imageSrc) => {
     try {
       setError(null);
+      onProcessingChange?.(true, "Detecting board, extracting cells, and running OCR...");
+
       // Wait for image to load to grab dimensions for OpenCV
       const img = new Image();
       img.src = imageSrc;
@@ -38,10 +42,13 @@ export default function UploadZone({ onGridReady, isProcessing }) {
     } catch (err) {
       console.error(err);
       setError(`Failed to read Sudoku from image: ${err.message || err.toString()}`);
+    } finally {
+      onProcessingChange?.(false);
     }
   };
 
   const handleFileChange = (e) => {
+    if (isProcessing) return;
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       const reader = new FileReader();
@@ -66,6 +73,7 @@ export default function UploadZone({ onGridReady, isProcessing }) {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
+    if (isProcessing) return;
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       const file = e.dataTransfer.files[0];
       const reader = new FileReader();
@@ -79,6 +87,7 @@ export default function UploadZone({ onGridReady, isProcessing }) {
   // --- Camera Logic ---
   const startCamera = async () => {
     try {
+      if (isProcessing) return;
       setCameraActive(true);
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }});
       if (videoRef.current) {
@@ -145,7 +154,7 @@ export default function UploadZone({ onGridReady, isProcessing }) {
             key="upload"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className={`relative rounded-2xl border-2 border-dashed p-8 text-center transition-all duration-300 backdrop-blur-md bg-[#1a1c23]/80 ${
+            className={`relative rounded-[24px] border-2 border-dashed p-6 text-center transition-all duration-300 backdrop-blur-md bg-[#1a1c23]/80 sm:p-8 ${
               dragActive ? 'border-[#4fd1c5] bg-[#4fd1c5]/10 shadow-[0_0_20px_rgba(79,209,197,0.2)]' : 'border-gray-600 hover:border-gray-500'
             }`}
             onDragEnter={handleDrag}
@@ -161,10 +170,10 @@ export default function UploadZone({ onGridReady, isProcessing }) {
              ) : (
                 <>
                   <div className="text-4xl mb-4">📸</div>
-                  <h3 className="text-lg font-semibold text-white mb-2">Drop Sudoku picture here</h3>
-                  <p className="text-sm text-gray-400 mb-6">Or click to browse from your device</p>
+                  <h3 className="text-lg font-semibold text-white mb-2">Drop a Sudoku photo here</h3>
+                  <p className="text-sm text-gray-400 mb-6">Printed boards with even lighting work best. We detect the grid automatically.</p>
                   
-                  <div className="flex justify-center gap-4">
+                  <div className="flex flex-col justify-center gap-3 sm:flex-row">
                     <input 
                       ref={fileInputRef} 
                       type="file" 
@@ -174,16 +183,24 @@ export default function UploadZone({ onGridReady, isProcessing }) {
                     />
                     <button 
                       onClick={() => fileInputRef.current?.click()}
-                      className="px-5 py-2.5 bg-[#2d3748] hover:bg-[#4a5568] transition rounded-lg text-sm font-medium"
+                      disabled={isProcessing}
+                      className="px-5 py-2.5 bg-[#2d3748] hover:bg-[#4a5568] disabled:opacity-50 disabled:cursor-not-allowed transition rounded-xl text-sm font-medium"
                     >
                       Browse Files
                     </button>
                     <button 
                       onClick={startCamera}
-                      className="px-5 py-2.5 bg-linear-to-r from-[#4fd1c5] to-[#9f7aea] text-black hover:opacity-90 transition rounded-lg text-sm font-bold shadow-[0_0_10px_rgba(159,122,234,0.4)]"
+                      disabled={isProcessing}
+                      className="px-5 py-2.5 bg-linear-to-r from-[#4fd1c5] to-[#9f7aea] text-black hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition rounded-xl text-sm font-bold shadow-[0_0_10px_rgba(159,122,234,0.4)]"
                     >
                       Open Camera
                     </button>
+                  </div>
+
+                  <div className="mt-6 grid gap-2 text-left text-xs text-slate-400 sm:grid-cols-3">
+                    <div className="rounded-xl border border-white/8 bg-white/5 px-3 py-2">Keep the full board inside frame</div>
+                    <div className="rounded-xl border border-white/8 bg-white/5 px-3 py-2">Avoid strong shadows and fingers</div>
+                    <div className="rounded-xl border border-white/8 bg-white/5 px-3 py-2">Use manual correction for uncertain OCR</div>
                   </div>
                 </>
              )}
@@ -195,7 +212,7 @@ export default function UploadZone({ onGridReady, isProcessing }) {
         <MotionDiv 
           initial={{ opacity: 0, y: -10 }} 
           animate={{ opacity: 1, y: 0 }} 
-          className="mt-4 p-3 rounded-lg bg-red-500/10 border border-red-500/50 text-red-500 text-sm text-center"
+          className="mt-4 rounded-2xl bg-red-500/10 border border-red-500/50 px-4 py-3 text-red-300 text-sm text-center"
         >
           {error}
         </MotionDiv>
